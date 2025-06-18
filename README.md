@@ -91,6 +91,15 @@ prod:
     DEBUG: false
 ```
 
+The `env` key alternatively accepts a sequence of key-value pairs, like this:
+
+```yaml
+dev:
+  env:
+    - HOST=localhost
+    - DEBUG=true
+```
+
 ### TOML
 
 ```toml
