@@ -5,13 +5,6 @@ on:
   push:
     tags:
       - "*"
-    paths:
-      - "**/*.go"
-      - .dockerignore
-      - Dockerfile
-      - go.mod
-      - go.sum
-      - .devenv/settings/.goreleaser.yaml
 
 jobs:
   release:
