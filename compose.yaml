@@ -56,6 +56,13 @@ services:
         source /home/user/.bashrc
         pall
 
+  code:
+    extends:
+      file: ${DOTAI}/compose.yaml
+      service: code
+    networks:
+      - envprof
+
 networks:
   envprof:
     name: envprof
