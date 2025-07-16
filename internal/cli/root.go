@@ -2,8 +2,8 @@
 package cli
 
 import (
-	"fmt"
 	"os"
+	"strings"
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
@@ -11,22 +11,28 @@ import (
 
 // Execute runs the root command for the envprof CLI application.
 func Execute(version string) error {
+	files := &[]string{
+		"envprof.yaml",
+		"envprof.yml",
+		"envprof.toml",
+	}
+
 	root := &cobra.Command{
 		Use:   "envprof",
 		Short: "Manage env profiles in YAML/TOML with inheritance",
-		Long: heredoc.Doc(`
+		Long: heredoc.Docf(`
 			Manage env profiles in YAML/TOML with inheritance.
-			Profiles are loaded from a config file, which can be specified with the --file flag.
+			Profiles are loaded from a config file, which can be specified with the --file flag,
+			or by setting the ENVPROF_FILE environment variable.
 
 			The tool will by default search for the following files in the current directory:
-			- envprof.yaml
-			- envprof.yml
-			- envprof.toml
+
+			%s
 
 			Profiles can be listed, exported, and used to spawn a new shell with the profile's environment.
 
-			Profiles can be inherited from other profiles and dotenv files, allowing for some flexibility.
-		`),
+			Profiles can be inherited from other profiles and dotenv files.
+		`, " - "+strings.Join(*files, "\n - ")),
 		Example: heredoc.Doc(`
 			# List the variables for the 'dev' profile
 			$ envprof list dev -v
@@ -55,12 +61,6 @@ func Execute(version string) error {
 	root.CompletionOptions.DisableDefaultCmd = true
 	cobra.EnableCommandSorting = false
 
-	files := &[]string{
-		"envprof.yaml",
-		"envprof.yml",
-		"envprof.toml",
-	}
-
 	if file := os.Getenv("ENVPROF_FILE"); file != "" {
 		files = &[]string{file}
 	}
@@ -75,7 +75,7 @@ func Execute(version string) error {
 	)
 
 	if err := root.Execute(); err != nil {
-		return fmt.Errorf("envprof: %w", err)
+		return err //nolint:wrapcheck	// Wrapping errors is not needed here.
 	}
 
 	return nil

@@ -91,7 +91,7 @@ prod:
     DEBUG: false
 ```
 
-The `env` key alternatively accepts a sequence of key-value pairs, like this:
+The `env` key alternatively accepts a sequence of key-value pairs:
 
 ```yaml
 dev:
