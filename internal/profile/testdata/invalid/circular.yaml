@@ -1,0 +1,17 @@
+profile_a:
+  extends:
+    - profile_b
+  env:
+    VAR_A: value_a
+
+profile_b:
+  extends:
+    - profile_c
+  env:
+    VAR_B: value_b
+
+profile_c:
+  extends:
+    - profile_a
+  env:
+    VAR_C: value_c

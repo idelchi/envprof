@@ -28,7 +28,7 @@ func (i InheritanceTracker) Format(key string, verbose, withKey bool) string {
 	}
 
 	if verbose {
-		if src := i.Inheritance[key]; src != i.Name {
+		if src := i.Inheritance[key]; src != "" && src != i.Name {
 			return fmt.Sprintf("%-60v (inherited from %q)", val, src)
 		}
 	}
