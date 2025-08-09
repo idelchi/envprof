@@ -81,8 +81,7 @@ func (p Profiles) Environment(name string) (*InheritanceTracker, error) {
 			}
 
 			for key, value := range dotenv {
-				err := final.Env.AddPair(key, value)
-				if err != nil {
+				if err := final.Env.AddPair(key, value); err != nil {
 					return nil, fmt.Errorf("profile %s: dotenv %s: %w", name, file, err)
 				}
 

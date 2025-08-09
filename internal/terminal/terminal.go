@@ -19,8 +19,7 @@ func Spawn(shell string, env []string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	err := cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("spawning terminal %q: %w", shell, err)
 	}
 

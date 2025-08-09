@@ -34,8 +34,7 @@ func (e *Env) UnmarshalYAML(node ast.Node) error {
 
 	type raw Env
 
-	err := yaml.NodeToValue(node, (*raw)(e))
-	if err != nil {
+	if err := yaml.NodeToValue(node, (*raw)(e)); err != nil {
 		return fmt.Errorf("decoding env map: %w", err)
 	}
 

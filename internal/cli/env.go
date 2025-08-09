@@ -61,8 +61,7 @@ func Env(envprof *[]string) *cobra.Command {
 			}
 
 			for _, dotenv := range dotenvs {
-				err := dotenv.WriteFrom(&profiles)
-				if err != nil {
+				if err := dotenv.WriteFrom(&profiles); err != nil {
 					return err //nolint:wrapcheck // Error does not need additional wrapping.
 				}
 
