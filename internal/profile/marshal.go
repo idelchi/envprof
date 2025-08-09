@@ -12,8 +12,7 @@ import (
 func (s *Store) unmarshal(data []byte) error {
 	switch s.Type {
 	case YAML:
-		err := yaml.UnmarshalWithOptions(data, &s.Profiles, yaml.Strict())
-		if err != nil {
+		if err := yaml.UnmarshalWithOptions(data, &s.Profiles, yaml.Strict()); err != nil {
 			return err //nolint:wrapcheck	// Error does not need additional wrapping.
 		}
 

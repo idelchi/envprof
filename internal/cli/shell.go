@@ -14,7 +14,7 @@ import (
 // Shell returns the cobra command for entering a scoped shell with the environment active.
 //
 //nolint:forbidigo	// Command print out to the console.
-func Shell(files *[]string) *cobra.Command {
+func Shell(envprof *[]string) *cobra.Command {
 	env := env.FromEnv()
 
 	var (
@@ -54,7 +54,7 @@ func Shell(files *[]string) *cobra.Command {
 				)
 			}
 
-			profiles, err := load(*files)
+			profiles, err := load(*envprof)
 			if err != nil {
 				return err
 			}

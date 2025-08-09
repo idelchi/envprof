@@ -11,6 +11,8 @@ vars:
 
 env:
   CSPELL_CONFIG: ./settings/cspell.yaml
+  CODESPELL_WORDLIST: ./settings/project-words
+  TYPOS_CONFIG: ./settings/typos.toml
 
 includes:
   aux: "{{.DEVENV}}/taskfiles/Taskfile.aux.yml"
@@ -38,8 +40,8 @@ tasks:
         - `task docker -- task <task> -f` to run a task/command inside the container
     cmds:
       - docker rm -f devenv > /dev/null 2>&1 || true
-      - docker compose -f {{.DEVENV}}/compose.yml build --build-arg CACHEBUST=$(date +%s) devenv
-      - docker compose -f {{.DEVENV}}/compose.yml run --rm devenv {{.CLI_ARGS}}
+      - docker compose -f {{.DEVENV}}/compose.yaml build --build-arg CACHEBUST=$(date +%s) devenv
+      - docker compose -f {{.DEVENV}}/compose.yaml run --rm devenv {{.CLI_ARGS}}
     interactive: true
 
   push:
@@ -76,11 +78,8 @@ tasks:
     deps:
       - generate
     cmds:
-      # TODO(Idelchi): Move as `deps` when fixed.
       - cmd: task lint:default
-        ignore_error: true
       - cmd: task go:lint
-        ignore_error: true
 
   build:
     deps:

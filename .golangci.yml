@@ -9,6 +9,10 @@ linters:
     - exhaustruct
     # Use named returns when it makes sense
     - nonamedreturns
+    # Favor inline errors
+    - noinlineerr
+    # Deprecated
+    - wsl
 
   settings:
     cyclop:
