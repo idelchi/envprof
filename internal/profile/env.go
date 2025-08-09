@@ -13,7 +13,7 @@ import (
 // Env is a map of environment variable names to their non-stringified values.
 type Env map[string]any
 
-// UnmarshalYAML allows Env to be unmarshalled as its regular type or a sequence of strings.
+// UnmarshalYAML allows Env to be unmarshaled as its regular type or a sequence of strings.
 func (e *Env) UnmarshalYAML(node ast.Node) error {
 	if seq, ok := node.(*ast.SequenceNode); ok {
 		var envs []string
@@ -34,7 +34,8 @@ func (e *Env) UnmarshalYAML(node ast.Node) error {
 
 	type raw Env
 
-	if err := yaml.NodeToValue(node, (*raw)(e)); err != nil {
+	err := yaml.NodeToValue(node, (*raw)(e))
+	if err != nil {
 		return fmt.Errorf("decoding env map: %w", err)
 	}
 

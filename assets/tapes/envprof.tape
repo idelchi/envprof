@@ -20,7 +20,7 @@ Sleep 500ms
 Enter
 Sleep 1s
 
-Type 'envprof export dev dev.env'
+Type 'envprof env dev'
 
 Sleep 500ms
 Enter

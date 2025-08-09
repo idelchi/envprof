@@ -5,15 +5,21 @@
 
 # cspell --config=.devenv/settings/cspell.yaml --words-only --unique "**/*.go" "**/*.py" "**/*.sh" | sort --ignore-case >> settings/project-words.txt
 
+docf
 dotenv
+dotenvs
 envprof
 forbidigo
 goccy
 gocognit
 godyl
 idelchi
+myapp
 nolint
+paralleltest
 psmodulepath
+testpackage
 undecoded
+unmarshaling
 unmarshals
 wrapcheck

@@ -76,7 +76,8 @@ func Execute(version string) error {
 		Shell(envprof),
 	)
 
-	if err := root.Execute(); err != nil {
+	err := root.Execute()
+	if err != nil {
 		return err //nolint:wrapcheck	// Wrapping errors is not needed here.
 	}
 

@@ -2,6 +2,7 @@
 package terminal
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,13 +13,14 @@ import (
 
 // Spawn launches a new shell with the specified environment variables.
 func Spawn(shell string, env []string) error {
-	cmd := exec.Command(shell)
+	cmd := exec.CommandContext(context.Background(), shell)
 	cmd.Env = env
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	if err := cmd.Run(); err != nil {
+	err := cmd.Run()
+	if err != nil {
 		return fmt.Errorf("spawning terminal %q: %w", shell, err)
 	}
 

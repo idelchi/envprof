@@ -45,27 +45,28 @@ func Env(envprof *[]string) *cobra.Command {
 				return err
 			}
 
-			var targets []dotenv.DotEnv
+			var dotenvs []dotenv.DotEnv
 			switch len(args) {
 			case 0:
-				names := profiles.Names()
-				targets = make([]dotenv.DotEnv, 0, len(names))
-				for _, p := range names {
-					targets = append(targets, dotenv.DotEnv{Profile: p, Path: file.New(p + ".env")})
+				profiles := profiles.Names()
+				dotenvs = make([]dotenv.DotEnv, 0, len(profiles))
+				for _, profile := range profiles {
+					dotenvs = append(dotenvs, dotenv.DotEnv{Profile: profile, Path: file.New(profile + ".env")})
 				}
 			case 1:
-				p := args[0]
-				targets = []dotenv.DotEnv{{Profile: p, Path: file.New(p + ".env")}}
+				profile := args[0]
+				dotenvs = []dotenv.DotEnv{{Profile: profile, Path: file.New(profile + ".env")}}
 			case 2: //nolint:mnd	// The number is obvious from the context.
-				targets = []dotenv.DotEnv{{Profile: args[0], Path: file.New(args[1])}}
+				dotenvs = []dotenv.DotEnv{{Profile: args[0], Path: file.New(args[1])}}
 			}
 
-			for _, d := range targets {
-				if err := d.WriteFrom(&profiles); err != nil {
+			for _, dotenv := range dotenvs {
+				err := dotenv.WriteFrom(&profiles)
+				if err != nil {
 					return err //nolint:wrapcheck // Error does not need additional wrapping.
 				}
 
-				fmt.Printf("Wrote profile %q to %q\n", d.Profile, d.Path)
+				fmt.Printf("Wrote profile %q to %q\n", dotenv.Profile, dotenv.Path)
 			}
 
 			return nil
