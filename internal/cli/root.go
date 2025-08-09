@@ -22,6 +22,7 @@ func Execute(version string) error {
 		Short: "Manage env profiles in YAML/TOML with inheritance",
 		Long: heredoc.Docf(`
 			Manage env profiles in YAML/TOML with inheritance.
+
 			Profiles are loaded from a config file, which can be specified with the --file flag,
 			or by setting the ENVPROF_FILE environment variable.
 
@@ -38,7 +39,7 @@ func Execute(version string) error {
 			$ envprof list dev -v
 
 			# Create a dotenv file from a given profile
-			$ envprof export dev dev.env
+			$ envprof env dev
 
 			# Eval the profile in the current shell
 			$ eval "$(envprof export dev)"

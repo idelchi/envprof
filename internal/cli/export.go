@@ -17,7 +17,7 @@ func Export(envprof *[]string) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "export <profile> [file]",
-		Short: "Emit 'export KEY=VAL' lines or write out as dotenv file",
+		Short: "Emit 'export KEY=VAL' lines to stdout",
 		Long: heredoc.Doc(`
 			Emit 'export KEY=VAL' lines to stdout as:
 

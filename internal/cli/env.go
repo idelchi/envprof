@@ -16,7 +16,7 @@ import (
 func Env(envprof *[]string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "env <profile> [file]",
-		Short: "Write profile variables to one or multiple dotenv files",
+		Short: "Write profile variables to dotenv files",
 		Long: heredoc.Doc(`
 			Write profile variables to one or multiple dotenv files.
 
@@ -37,7 +37,7 @@ func Env(envprof *[]string) *cobra.Command {
 			$ envprof env
 		`),
 
-		Aliases: []string{"e"},
+		Aliases: []string{"e", "write"},
 		Args:    cobra.RangeArgs(0, 2), //nolint:mnd	// The command takes between 0 and 2 arguments as documented.
 		RunE: func(_ *cobra.Command, args []string) error {
 			profiles, err := load(*envprof)
