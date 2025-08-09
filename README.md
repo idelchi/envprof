@@ -48,8 +48,8 @@ envprof list dev HOST
 ```
 
 ```sh
-# export profile to a file
-envprof export dev .env
+# write profile to a file
+envprof env dev .env
 ```
 
 ```sh
@@ -126,7 +126,7 @@ PORT = 80
 Inheritance is resolved in order: later profiles override earlier ones.
 `dotenv` files have the lowest priority and load first, before applying profile layers.
 
-As an example, running `envprof export dev .env` with the previous YAML definition
+As an example, running `envprof env dev .env` with the previous YAML definition
 as well as a sample `secrets.env`:
 
 ```sh
@@ -178,7 +178,6 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>list / ls</strong> — List profiles or variables</summary>
 
 - **Usage:**
-
   - `envprof list [--verbose/-v] [profile] [variable]`
 
 - **Flags:**
@@ -187,23 +186,30 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 </details>
 
 <details>
-<summary><strong>export / x</strong> — Export profile to file or stdout</summary>
+<summary><strong>export / x</strong> — Export profile to stdout</summary>
 
 - **Usage:**
-
-  - `envprof export [--prefix <string>] <profile> [file]`
+  - `envprof export [--prefix <string>] <profile>`
 
 - **Flags:**
-    <!-- markdownlint-disable MD038 -->
+  <!-- markdownlint-disable MD038 -->
   - `--prefix` – String to prefix variables (default: `export `)
-    <!-- markdownlint-enable MD038 -->
-    </details>
+  <!-- markdownlint-enable MD038 -->
+
+</details>
+
+<details>
+<summary><strong>env / e</strong> — Write profile(s) to file(s)</summary>
+
+- **Usage:**
+  - `envprof env [profile] [file]`
+
+</details>
 
 <details>
 <summary><strong>shell / sh</strong> — Spawn a subshell with profile</summary>
 
 - **Usage:**
-
   - `envprof shell [--isolate/-i] [--shell <string>] <profile>`
 
 - **Flags:**

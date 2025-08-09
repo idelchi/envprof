@@ -10,7 +10,7 @@ dev:
   env:
     APP_ENV: development
     DEBUG: true
-    LOG_LEVEL: debug  # Override base
+    LOG_LEVEL: debug # Override base
 
 staging:
   extends:

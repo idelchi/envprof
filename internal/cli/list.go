@@ -10,7 +10,7 @@ import (
 // List returns the cobra command for listing profiles and their variables.
 //
 //nolint:forbidigo	// Command print out to the console.
-func List(files *[]string) *cobra.Command {
+func List(envprof *[]string) *cobra.Command {
 	var verbose bool
 
 	cmd := &cobra.Command{
@@ -38,7 +38,7 @@ func List(files *[]string) *cobra.Command {
 		Aliases: []string{"ls"},
 		Args:    cobra.MaximumNArgs(2), //nolint:mnd	// The command takes up to 2 arguments as documented.
 		RunE: func(_ *cobra.Command, args []string) error {
-			profiles, err := load(*files)
+			profiles, err := load(*envprof)
 			if err != nil {
 				return err
 			}

@@ -11,7 +11,7 @@ import (
 
 // Execute runs the root command for the envprof CLI application.
 func Execute(version string) error {
-	files := &[]string{
+	envprof := &[]string{
 		"envprof.yaml",
 		"envprof.yml",
 		"envprof.toml",
@@ -32,7 +32,7 @@ func Execute(version string) error {
 			Profiles can be listed, exported, and used to spawn a new shell with the profile's environment.
 
 			Profiles can be inherited from other profiles and dotenv files.
-		`, " - "+strings.Join(*files, "\n - ")),
+		`, " - "+strings.Join(*envprof, "\n - ")),
 		Example: heredoc.Doc(`
 			# List the variables for the 'dev' profile
 			$ envprof list dev -v
@@ -62,16 +62,17 @@ func Execute(version string) error {
 	cobra.EnableCommandSorting = false
 
 	if file := os.Getenv("ENVPROF_FILE"); file != "" {
-		files = &[]string{file}
+		envprof = &[]string{file}
 	}
 
 	root.PersistentFlags().
-		StringSliceVarP(files, "file", "f", *files, "config file to use, in order of preference")
+		StringSliceVarP(envprof, "file", "f", *envprof, "config file to use, in order of preference")
 
 	root.AddCommand(
-		List(files),
-		Export(files),
-		Shell(files),
+		List(envprof),
+		Export(envprof),
+		Env(envprof),
+		Shell(envprof),
 	)
 
 	if err := root.Execute(); err != nil {

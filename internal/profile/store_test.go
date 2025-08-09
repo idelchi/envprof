@@ -10,7 +10,7 @@ import (
 	"github.com/goccy/go-yaml"
 )
 
-// TestStore_Unmarshal tests unmarshaling profiles from YAML and TOML formats.
+// TestStore_Unmarshal tests unmarshalling profiles from YAML and TOML formats.
 func TestStore_Unmarshal(t *testing.T) {
 	t.Parallel()
 

@@ -9,7 +9,7 @@ import (
 	"github.com/idelchi/godyl/pkg/env"
 )
 
-// TestEnv_UnmarshalYAML tests unmarshaling environment variables from YAML in both map and sequence formats.
+// TestEnv_UnmarshalYAML tests unmarshalling environment variables from YAML in both map and sequence formats.
 //
 //nolint:gocognit // Complex table-driven tests with multiple scenarios
 func TestEnv_UnmarshalYAML(t *testing.T) {

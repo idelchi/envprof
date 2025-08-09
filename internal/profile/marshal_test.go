@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestStore_UnsupportedType tests that unmarshaling returns an error for unsupported file types.
+// TestStore_UnsupportedType tests that unmarshalling returns an error for unsupported file types.
 func TestStore_UnsupportedType(t *testing.T) {
 	t.Parallel()
 
