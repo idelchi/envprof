@@ -1,0 +1,20 @@
+dev:
+  dotenv:
+    - secrets.env
+  extends:
+    - staging
+  env:
+    - HOST=localhost
+
+staging:
+  extends:
+    - prod
+  env:
+    HOST: staging.example.com
+    DEBUG: true
+
+prod:
+  env:
+    HOST: prod.example.com
+    PORT: 80
+    DEBUG: false

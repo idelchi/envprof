@@ -13,7 +13,7 @@ import (
 
 // Shell returns the cobra command for entering a scoped shell with the environment active.
 //
-//nolint:forbidigo	// Command print out to the console.
+//nolint:forbidigo	// Command prints out to the console.
 func Shell(envprof *[]string) *cobra.Command {
 	env := env.FromEnv()
 

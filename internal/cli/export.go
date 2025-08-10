@@ -11,7 +11,7 @@ import (
 // It emits '<prefix> KEY=VAL' lines or writes them out as a dotenv file.
 // By default, 'prefix' is set to "export".
 //
-//nolint:forbidigo	// Command print out to the console.
+//nolint:forbidigo	// Command prints out to the console.
 func Export(envprof *[]string) *cobra.Command {
 	prefix := "export "
 

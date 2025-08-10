@@ -1,0 +1,16 @@
+[dev]
+extends = ['staging']
+dotenv = ['secrets.env']
+[dev.env]
+HOST = 'localhost'
+
+[staging]
+extends = ['prod']
+[staging.env]
+DEBUG = true
+HOST = 'staging.example.com'
+
+[prod.env]
+DEBUG = false
+HOST = 'prod.example.com'
+PORT = 80

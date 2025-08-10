@@ -38,7 +38,7 @@ var (
 func New(file file.File) (*Store, error) {
 	store := &Store{
 		File:     file,
-		Profiles: map[string]*Profile{},
+		Profiles: map[string]*profile{},
 	}
 
 	switch ext := file.Extension(); ext {

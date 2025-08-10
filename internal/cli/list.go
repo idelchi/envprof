@@ -9,7 +9,7 @@ import (
 
 // List returns the cobra command for listing profiles and their variables.
 //
-//nolint:forbidigo	// Command print out to the console.
+//nolint:forbidigo	// Command prints out to the console.
 func List(envprof *[]string) *cobra.Command {
 	var verbose bool
 

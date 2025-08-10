@@ -6,13 +6,13 @@ import (
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
 
-	"github.com/idelchi/envprof/internal/dotenv"
+	"github.com/idelchi/envprof/internal/profile"
 	"github.com/idelchi/godyl/pkg/path/file"
 )
 
 // Env defines the command for exporting profile variables to one or multiple dotenv files.
 //
-//nolint:forbidigo	// Command print out to the console.
+//nolint:forbidigo	// Command prints out to the console.
 func Env(envprof *[]string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "env <profile> [file]",
@@ -45,23 +45,23 @@ func Env(envprof *[]string) *cobra.Command {
 				return err
 			}
 
-			var dotenvs []dotenv.DotEnv
+			var dotenvs []profile.DotEnv
 			switch len(args) {
 			case 0:
 				profiles := profiles.Names()
-				dotenvs = make([]dotenv.DotEnv, 0, len(profiles))
-				for _, profile := range profiles {
-					dotenvs = append(dotenvs, dotenv.DotEnv{Profile: profile, Path: file.New(profile + ".env")})
+				dotenvs = make([]profile.DotEnv, 0, len(profiles))
+				for _, prof := range profiles {
+					dotenvs = append(dotenvs, profile.DotEnv{Profile: prof, Path: file.New(prof + ".env")})
 				}
 			case 1:
-				profile := args[0]
-				dotenvs = []dotenv.DotEnv{{Profile: profile, Path: file.New(profile + ".env")}}
+				prof := args[0]
+				dotenvs = []profile.DotEnv{{Profile: prof, Path: file.New(prof + ".env")}}
 			case 2: //nolint:mnd	// The number is obvious from the context.
-				dotenvs = []dotenv.DotEnv{{Profile: args[0], Path: file.New(args[1])}}
+				dotenvs = []profile.DotEnv{{Profile: args[0], Path: file.New(args[1])}}
 			}
 
 			for _, dotenv := range dotenvs {
-				if err := dotenv.WriteFrom(&profiles); err != nil {
+				if err := profiles.ToDotEnv(dotenv.Profile, dotenv.Path); err != nil {
 					return err //nolint:wrapcheck // Error does not need additional wrapping.
 				}
 

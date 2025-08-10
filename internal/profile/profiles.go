@@ -4,13 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/idelchi/godyl/pkg/dag"
 	"github.com/idelchi/godyl/pkg/env"
+	"github.com/idelchi/godyl/pkg/path/file"
 )
 
 // Profiles is a map of profile names to their metadata.
-type Profiles map[string]*Profile
+type Profiles map[string]*profile
 
 // Exists checks if a profile exists in the store.
 func (p Profiles) Exists(name string) bool {
@@ -77,12 +79,12 @@ func (p Profiles) Environment(name string) (*InheritanceTracker, error) {
 		for _, file := range profile.DotEnv {
 			dotenv, err := env.FromDotEnv(file)
 			if err != nil {
-				return nil, fmt.Errorf("profile %s: dotenv %s: %w", name, file, err)
+				return nil, fmt.Errorf("profile %q: dotenv %q: %w", name, file, err)
 			}
 
 			for key, value := range dotenv {
 				if err := final.Env.AddPair(key, value); err != nil {
-					return nil, fmt.Errorf("profile %s: dotenv %s: %w", name, file, err)
+					return nil, fmt.Errorf("profile %q: dotenv %q: %w", name, file, err)
 				}
 
 				final.Inheritance[key] = file
@@ -107,4 +109,23 @@ func (p Profiles) Environment(name string) (*InheritanceTracker, error) {
 	}
 
 	return final, errors.Join(errs...)
+}
+
+// ToDotEnv writes the environment variables for a profile to a dotenv file.
+func (p Profiles) ToDotEnv(profile string, dotenv file.File) error {
+	vars, err := p.Environment(profile)
+	if err != nil {
+		return err
+	}
+
+	envs := vars.Env.AsSlice()
+
+	envs = append([]string{fmt.Sprintf("# Active profile: %q", profile)}, envs...)
+	envs = append(envs, "")
+
+	if err := dotenv.Write([]byte(strings.Join(envs, "\n"))); err != nil {
+		return fmt.Errorf("writing to dotenv file %q: %w", dotenv, err)
+	}
+
+	return nil
 }

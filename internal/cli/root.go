@@ -1,4 +1,3 @@
-// Package cli implements the command-line interface for envprof.
 package cli
 
 import (
@@ -77,7 +76,7 @@ func Execute(version string) error {
 	)
 
 	if err := root.Execute(); err != nil {
-		return err //nolint:wrapcheck	// Wrapping errors is not needed here.
+		return err //nolint:wrapcheck	// Error does not need additional wrapping.
 	}
 
 	return nil
