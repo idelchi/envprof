@@ -77,12 +77,12 @@ func (p Profiles) Environment(name string) (*InheritanceTracker, error) {
 		for _, file := range profile.DotEnv {
 			dotenv, err := env.FromDotEnv(file)
 			if err != nil {
-				return nil, fmt.Errorf("profile %q: dotenv %q: %w", name, file, err)
+				return nil, fmt.Errorf("profile %q: %w", name, err)
 			}
 
 			for key, value := range dotenv {
 				if err := final.Env.AddPair(key, value); err != nil {
-					return nil, fmt.Errorf("profile %q: dotenv %q: %w", name, file, err)
+					return nil, fmt.Errorf("profile %q: %w", name, err)
 				}
 
 				final.Inheritance[key] = file
