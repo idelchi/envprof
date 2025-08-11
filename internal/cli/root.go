@@ -20,31 +20,31 @@ func Execute(version string) error {
 		Use:   "envprof",
 		Short: "Manage env profiles in YAML/TOML with inheritance",
 		Long: heredoc.Docf(`
-			Manage env profiles in YAML/TOML with inheritance.
+			Manage environment profiles defined in YAML or TOML, with inheritance and dotenv imports.
 
-			Profiles are loaded from a config file, which can be specified with the --file flag,
-			or by setting the ENVPROF_FILE environment variable.
-
-			The tool will by default search for the following files in the current directory:
+			The config file is chosen via --file (can be a list) or ENVPROF_FILE.
+			By default, envprof searches in the current directory for:
 
 			%s
 
-			Profiles can be listed, exported, and used to spawn a new shell with the profile's environment.
-
-			Profiles can be inherited from other profiles and dotenv files.
+			Use subcommands to list profiles, export variables, write dotenv files,
+			spawn a subshell, or exec a command with a selected profile.
 		`, " - "+strings.Join(*envprof, "\n - ")),
 		Example: heredoc.Doc(`
-			# List the variables for the 'dev' profile
-			$ envprof list dev -v
+			# List variables for 'dev'
+			envprof list dev -v
 
-			# Create a dotenv file from a given profile
-			$ envprof env dev
+			# Create a dotenv file from a profile
+			envprof write dev .env
 
-			# Eval the profile in the current shell
-			$ eval "$(envprof export dev)"
+			# Export to current shell
+			eval "$(envprof export dev)"
 
-			# Enter a new shell with the profile's environment
-			$ envprof shell dev --shell zsh
+			# Enter a subshell with a profile
+			envprof shell dev --shell zsh
+
+			# Execute a command with a profile
+			envprof exec dev -- ls -la
 		`),
 		Version:       version,
 		SilenceErrors: true,
@@ -58,6 +58,8 @@ func Execute(version string) error {
 	root.SetHelpCommand(&cobra.Command{Hidden: true})
 
 	root.Flags().SortFlags = false
+	root.PersistentFlags().SortFlags = false
+
 	root.CompletionOptions.DisableDefaultCmd = true
 	cobra.EnableCommandSorting = false
 
@@ -71,8 +73,9 @@ func Execute(version string) error {
 	root.AddCommand(
 		List(envprof),
 		Export(envprof),
-		Env(envprof),
+		Write(envprof),
 		Shell(envprof),
+		Exec(envprof),
 	)
 
 	if err := root.Execute(); err != nil {

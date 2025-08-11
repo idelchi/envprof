@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/idelchi/godyl/pkg/env"
+	"github.com/idelchi/godyl/pkg/path/file"
 )
 
 // InheritanceTracker holds the environment variables and their inheritance sources.
@@ -50,4 +51,18 @@ func (i InheritanceTracker) FormatAll(prefix string, verbose bool) string {
 	}
 
 	return strings.Join(out, "\n")
+}
+
+// ToDotEnv writes the environment variables to a dotenv file.
+func (i InheritanceTracker) ToDotEnv(dotenv file.File) error {
+	envs := i.Env.AsSlice()
+
+	envs = append([]string{fmt.Sprintf("# Active profile: %q", i.Name)}, envs...)
+	envs = append(envs, "")
+
+	if err := dotenv.Write([]byte(strings.Join(envs, "\n"))); err != nil {
+		return fmt.Errorf("writing to dotenv file %q: %w", dotenv, err)
+	}
+
+	return nil
 }

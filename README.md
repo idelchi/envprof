@@ -20,7 +20,7 @@ Supports profile inheritance (layering) and importing of `.env` files.
 ## Features
 
 - Define multiple environment profiles in a single YAML or TOML file, with inheritance and dotenv support
-- List profiles, export to `.env` files or the current shell, or spawn a subshell with the selected environment
+- List profiles, export to `.env` files or the current shell, execute a command or spawn a subshell with the selected environment
 
 ## Installation
 
@@ -60,6 +60,11 @@ envprof shell dev
 ```sh
 # export to current shell
 eval "$(envprof export dev)"
+```
+
+```sh
+# Execute a command with the profile's environment
+envprof exec dev -- ls -la
 ```
 
 ## Format
@@ -178,10 +183,12 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>list / ls</strong> — List profiles or variables</summary>
 
 - **Usage:**
+
   - `envprof list [--verbose/-v] [profile] [variable]`
 
 - **Flags:**
   - `--verbose`, `-v` – Show variable origins
+  - `--oneline`, `-o` – Emit variables on a single line
 
 </details>
 
@@ -189,6 +196,7 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>export / x</strong> — Export profile to stdout</summary>
 
 - **Usage:**
+
   - `envprof export [--prefix <string>] <profile>`
 
 - **Flags:**
@@ -199,10 +207,10 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 </details>
 
 <details>
-<summary><strong>env / e</strong> — Write profile(s) to file(s)</summary>
+<summary><strong>write / w</strong> — Write profile(s) to file(s)</summary>
 
 - **Usage:**
-  - `envprof env [profile] [file]`
+  - `envprof write [profile] [file]`
 
 </details>
 
@@ -210,11 +218,26 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>shell / sh</strong> — Spawn a subshell with profile</summary>
 
 - **Usage:**
+
   - `envprof shell [--isolate/-i] [--shell <string>] <profile>`
 
 - **Flags:**
-  - `--isolate`, `-i` – Prevent inheriting current shell variables
   - `--shell`, `-s` – Force shell (default empty string -> detected)
+  - `--isolate`, `-i` – Prevent inheriting current shell variables
+  - `--path`, `-p` – Include the current PATH in the environment
+
+</details>
+
+<details>
+<summary><strong>exec / ex</strong> — Execute a command with profile</summary>
+
+- **Usage:**
+
+  - `envprof exec [--isolate/-i] [--path/-p] <profile> <command> [args...]`
+
+- **Flags:**
+  - `--isolate`, `-i` – Prevent inheriting current shell variables
+  - `--path`, `-p` – Include the current PATH in the environment
 
 </details>
 

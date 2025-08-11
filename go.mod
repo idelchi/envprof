@@ -8,6 +8,7 @@ require (
 	github.com/goccy/go-yaml v1.17.1
 	github.com/idelchi/godyl v0.0.0-20250520105537-dbba07c49701
 	github.com/spf13/cobra v1.9.1
+	golang.org/x/sys v0.32.0
 )
 
 require (

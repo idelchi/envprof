@@ -4,11 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/idelchi/godyl/pkg/dag"
 	"github.com/idelchi/godyl/pkg/env"
-	"github.com/idelchi/godyl/pkg/path/file"
 )
 
 // Profiles is a map of profile names to their metadata.
@@ -48,7 +46,7 @@ func (p Profiles) Environment(name string) (*InheritanceTracker, error) {
 	}
 
 	if !p.Exists(name) {
-		return nil, fmt.Errorf("%w: %s", ErrProfileNotFound, name)
+		return nil, fmt.Errorf("%w: %q", ErrProfileNotFound, name)
 	}
 
 	// Build dependency DAG.
@@ -109,23 +107,4 @@ func (p Profiles) Environment(name string) (*InheritanceTracker, error) {
 	}
 
 	return final, errors.Join(errs...)
-}
-
-// ToDotEnv writes the environment variables for a profile to a dotenv file.
-func (p Profiles) ToDotEnv(profile string, dotenv file.File) error {
-	vars, err := p.Environment(profile)
-	if err != nil {
-		return err
-	}
-
-	envs := vars.Env.AsSlice()
-
-	envs = append([]string{fmt.Sprintf("# Active profile: %q", profile)}, envs...)
-	envs = append(envs, "")
-
-	if err := dotenv.Write([]byte(strings.Join(envs, "\n"))); err != nil {
-		return fmt.Errorf("writing to dotenv file %q: %w", dotenv, err)
-	}
-
-	return nil
 }

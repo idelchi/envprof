@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/idelchi/envprof/internal/profile"
+	"github.com/idelchi/godyl/pkg/env"
 	"github.com/idelchi/godyl/pkg/path/files"
 )
 
@@ -26,4 +27,29 @@ func load(paths []string) (profile.Profiles, error) {
 	}
 
 	return store.Profiles, nil
+}
+
+// loadProfileVars loads the profile variables from the specified file and fallbacks.
+func loadProfileVars(paths []string, name string) (*profile.InheritanceTracker, error) {
+	profiles, err := load(paths)
+	if err != nil {
+		return nil, err
+	}
+
+	vars, err := profiles.Environment(name)
+	if err != nil {
+		return nil, err //nolint:wrapcheck	// Error does not need additional wrapping.
+	}
+
+	return vars, nil
+}
+
+// loadProfileEnv loads the profile environment from the specified file and fallbacks.
+func loadProfileEnv(paths []string, name string) (env.Env, error) {
+	profiles, err := loadProfileVars(paths, name)
+	if err != nil {
+		return nil, err
+	}
+
+	return profiles.Env, nil
 }

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
@@ -11,39 +12,37 @@ import (
 //
 //nolint:forbidigo	// Command prints out to the console.
 func List(envprof *[]string) *cobra.Command {
-	var verbose bool
+	var (
+		verbose bool
+		oneline bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list [profile] [key]",
 		Short: "List profiles and their variables",
 		Long: heredoc.Doc(`
-		Calling this function with:
-			- no arguments lists all available profiles (alphabetically sorted).
-			- with a profile name lists all variables for that profile.
-			- with a profile name and a key lists the value of that key for that profile.
-
-		When using the -v flag, the source of each variable is shown.
-		If the source is the profile itself, the entry will be blank.
+			Lists all profiles (sorted),
+			all variables for a specific profile,
+			or the value of a variable for a specific profile.
 		`),
 		Example: heredoc.Doc(`
 			# List all profiles
 			$ envprof list
 
-			# List all variables for the 'dev' profile, emitting the source of each variable
+			# List all variables for 'dev' with sources
 			$ envprof list dev -v
 
-			# List the value of the 'HOST' variable for the 'dev' profile, emitting the source of the variable
-			$ envprof list dev HOST -v
+			# Show the value of HOST in 'dev'
+			$ envprof list dev HOST
 		`),
 		Aliases: []string{"ls"},
 		Args:    cobra.MaximumNArgs(2), //nolint:mnd	// The command takes up to 2 arguments as documented.
 		RunE: func(_ *cobra.Command, args []string) error {
-			profiles, err := load(*envprof)
-			if err != nil {
-				return err
-			}
-
 			if len(args) == 0 {
+				profiles, err := load(*envprof)
+				if err != nil {
+					return err
+				}
 				for _, profile := range profiles.Names() {
 					fmt.Println(profile)
 				}
@@ -53,26 +52,42 @@ func List(envprof *[]string) *cobra.Command {
 
 			prof := args[0]
 
-			vars, err := profiles.Environment(prof)
+			vars, err := loadProfileVars(*envprof, prof)
 			if err != nil {
-				return err //nolint:wrapcheck	// Error does not need additional wrapping.
+				return err
 			}
+
+			if oneline {
+				verbose = false
+			}
+
+			var output string
 
 			if len(args) > 1 {
 				if !vars.Env.Exists(args[1]) {
 					//nolint:err113	// Occasional dynamic errors are fine.
 					return fmt.Errorf("key %q not found in profile %q", args[1], prof)
 				}
-				fmt.Println(vars.Format(args[1], verbose, false))
+
+				output = vars.Format(args[1], verbose, false)
 			} else {
-				fmt.Println(vars.FormatAll("", verbose))
+				output = vars.FormatAll("", verbose)
 			}
+
+			if oneline {
+				output = strings.Join(strings.Fields(output), " ")
+			}
+
+			fmt.Println(output)
 
 			return nil
 		},
 	}
 
+	cmd.Flags().SortFlags = false
+
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show from which source each variable is inherited")
+	cmd.Flags().BoolVarP(&oneline, "oneline", "o", false, "Emit variables on a single line")
 
 	return cmd
 }

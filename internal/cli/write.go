@@ -10,34 +10,31 @@ import (
 	"github.com/idelchi/godyl/pkg/path/file"
 )
 
-// Env defines the command for exporting profile variables to one or multiple dotenv files.
+// Write defines the command for writing profile variables to one or multiple dotenv files.
 //
 //nolint:forbidigo	// Command prints out to the console.
-func Env(envprof *[]string) *cobra.Command {
+func Write(envprof *[]string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "env <profile> [file]",
+		Use:   "write [profile] [file]",
 		Short: "Write profile variables to dotenv files",
 		Long: heredoc.Doc(`
-			Write profile variables to one or multiple dotenv files.
+			Write variables to dotenv files.
 
-			If no profile is provided, all profiles will be written out to files named as <profile>.env.
-
-			When specifying a specific profile, the default output file will be named as <profile>.env.
-
-			This can be overridden by providing a file argument.
+			No arguments: write all profiles to <profile>.env files.
+			<profile>: write <profile> to <profile>.env.
+			<profile> <file>: write <profile> to <file>.
 		`),
 		Example: heredoc.Doc(`
-			# Write out to 'dev.env'
-			$ envprof env dev
+			# Write 'dev' to dev.env
+			envprof write dev
 
-			# Write out to a specific dotenv file
-			$ envprof env dev .env
+			# Write 'dev' to a specific file
+			envprof write dev .env
 
-			# Write out all profiles to separate files named after <profile>
-			$ envprof env
+			# Write all profiles to <profile>.env files
+			envprof write
 		`),
-
-		Aliases: []string{"e", "write"},
+		Aliases: []string{"w"},
 		Args:    cobra.RangeArgs(0, 2), //nolint:mnd	// The command takes between 0 and 2 arguments as documented.
 		RunE: func(_ *cobra.Command, args []string) error {
 			profiles, err := load(*envprof)
@@ -61,7 +58,12 @@ func Env(envprof *[]string) *cobra.Command {
 			}
 
 			for _, dotenv := range dotenvs {
-				if err := profiles.ToDotEnv(dotenv.Profile, dotenv.Path); err != nil {
+				profile, err := profiles.Environment(dotenv.Profile)
+				if err != nil {
+					return err //nolint:wrapcheck // Error does not need additional wrapping.
+				}
+
+				if err := profile.ToDotEnv(dotenv.Path); err != nil {
 					return err //nolint:wrapcheck // Error does not need additional wrapping.
 				}
 

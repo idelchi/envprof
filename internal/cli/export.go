@@ -8,8 +8,6 @@ import (
 )
 
 // Export defines the command for exporting a profile's variables.
-// It emits '<prefix> KEY=VAL' lines or writes them out as a dotenv file.
-// By default, 'prefix' is set to "export".
 //
 //nolint:forbidigo	// Command prints out to the console.
 func Export(envprof *[]string) *cobra.Command {
@@ -17,36 +15,31 @@ func Export(envprof *[]string) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "export <profile> [file]",
-		Short: "Emit 'export KEY=VAL' lines to stdout",
+		Short: "Emit '<prefix>KEY=VAL' lines",
 		Long: heredoc.Doc(`
-			Emit 'export KEY=VAL' lines to stdout as:
+			Print lines suitable for eval in the current shell:
 
-			<prefix>KEY1=VAL1
-			<prefix>KEY2=VAL2
-			<prefix>KEY3=VAL3
+			 <prefix>KEY1=VAL1
+			 <prefix>KEY2=VAL2
+			 ...
 
-			The default prefix is "export " and can be customized with the --prefix flag.
+			Default prefix is "export ". Override with --prefix (e.g., "$env:" on PowerShell).
 		`),
 		Example: heredoc.Doc(`
-			# Emit 'export KEY=VAL' lines
-			$ envprof export dev
+			# Emit 'export KEY=VAL' lines for 'dev'
+			envprof export dev
 
-			# Emit '$env:KEY=VAL' lines with a custom prefix
-			$ envprof export dev --prefix "$env:"
+			# Use a custom prefix (PowerShell)
+			envprof export dev --prefix "$env:"
 		`),
 		Aliases: []string{"x"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			profiles, err := load(*envprof)
-			if err != nil {
-				return err
-			}
-
 			prof := args[0]
 
-			vars, err := profiles.Environment(prof)
+			vars, err := loadProfileVars(*envprof, prof)
 			if err != nil {
-				return err //nolint:wrapcheck	// Error does not need additional wrapping.
+				return err
 			}
 
 			envs := vars.FormatAll(prefix, false)
@@ -56,6 +49,8 @@ func Export(envprof *[]string) *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().SortFlags = false
 
 	cmd.Flags().StringVarP(&prefix, "prefix", "p", prefix, "Prefix for the export command")
 
