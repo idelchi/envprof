@@ -183,7 +183,8 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>list / ls</strong> — List profiles or variables</summary>
 
 - **Usage:**
-  - `envprof list [--verbose/-v] [profile] [variable]`
+
+  - `envprof list [flags] [profile] [variable]`
 
 - **Flags:**
   - `--verbose`, `-v` – Show variable origins
@@ -195,11 +196,12 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>export / x</strong> — Export profile to stdout</summary>
 
 - **Usage:**
-  - `envprof export [--prefix <string>] <profile>`
+
+  - `envprof export [flags] <profile>`
 
 - **Flags:**
   <!-- markdownlint-disable MD038 -->
-  - `--prefix` – String to prefix variables (default: `export `)
+  - `--prefix <string>` – String to prefix variables (default: `export `)
   <!-- markdownlint-enable MD038 -->
 
 </details>
@@ -208,7 +210,7 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>write / w</strong> — Write profile(s) to file(s)</summary>
 
 - **Usage:**
-  - `envprof write [profile] [file]`
+  - `envprof write [flags] [profile] [file]`
 
 </details>
 
@@ -216,10 +218,11 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>shell / sh</strong> — Spawn a subshell with profile</summary>
 
 - **Usage:**
-  - `envprof shell [--isolate/-i] [--shell <string>] <profile>`
+
+  - `envprof shell [flags] <profile>`
 
 - **Flags:**
-  - `--shell`, `-s` – Force shell (default empty string -> detected)
+  - `--shell <shell>`, `-s <shell>` – Force shell (default empty string -> detected)
   - `--isolate`, `-i` – Prevent inheriting current shell variables
   - `--path`, `-p` – Include the current PATH in the environment
 
@@ -229,7 +232,8 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>exec / ex</strong> — Execute a command with profile</summary>
 
 - **Usage:**
-  - `envprof exec [--isolate/-i] [--path/-p] <profile> <command> [args...]`
+
+  - `envprof exec [flags] <profile> <command> [args...]`
 
 - **Flags:**
   - `--isolate`, `-i` – Prevent inheriting current shell variables
