@@ -183,7 +183,6 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>list / ls</strong> — List profiles or variables</summary>
 
 - **Usage:**
-
   - `envprof list [flags] [profile] [variable]`
 
 - **Flags:**
@@ -196,7 +195,6 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>export / x</strong> — Export profile to stdout</summary>
 
 - **Usage:**
-
   - `envprof export [flags] <profile>`
 
 - **Flags:**
@@ -218,7 +216,6 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>shell / sh</strong> — Spawn a subshell with profile</summary>
 
 - **Usage:**
-
   - `envprof shell [flags] <profile>`
 
 - **Flags:**
@@ -232,7 +229,6 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>exec / ex</strong> — Execute a command with profile</summary>
 
 - **Usage:**
-
   - `envprof exec [flags] <profile> <command> [args...]`
 
 - **Flags:**
