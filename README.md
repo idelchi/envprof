@@ -20,7 +20,8 @@ Supports profile inheritance (layering) and importing of `.env` files.
 ## Features
 
 - Define multiple environment profiles in a single YAML or TOML file, with inheritance and dotenv support
-- List profiles, export to `.env` files or the current shell, execute a command or spawn a subshell with the selected environment
+- List profiles, write to `.env` files or export to the current shell,
+  execute a command or spawn a subshell with the selected environment
 
 ## Installation
 
@@ -34,49 +35,54 @@ curl -sSL https://raw.githubusercontent.com/idelchi/envprof/refs/heads/main/inst
 
 ```sh
 # list all profiles
-envprof list
+envprof profiles
 ```
 
 ```sh
 # list all variables in a profile with inheritance information
-envprof list dev -v
+envprof --profile dev list -v
 ```
 
 ```sh
 # list a specific variable
-envprof list dev HOST
+envprof --profile dev list HOST
 ```
 
 ```sh
 # write profile to a file
-envprof env dev .env
+envprof --profile dev write .env
 ```
 
 ```sh
 # spawn a subshell with the environment loaded
-envprof shell dev
+envprof --profile dev shell
 ```
 
 ```sh
 # export to current shell
-eval "$(envprof export dev)"
+eval "$(envprof --profile dev export)"
 ```
 
 ```sh
 # Execute a command with the profile's environment
-envprof exec dev -- ls -la
+envprof --profile dev exec -- ls -la
 ```
 
 ## Format
 
 Complex types (arrays, maps) are serialized as JSON; all other values are simple strings.
 
+Non-scalars are emitted as minified JSON wrapped in single quotes.
+
 ### YAML
 
 ```yaml
 dev:
-  dotenv:
-    - secrets.env
+  # Default profile to use when none is set with `--profile`
+  default: true
+  # Default output name for the `write` subcommand if not overridden by arguments
+  output: development.env
+  # Extend from other profiles
   extends:
     - staging
   env:
@@ -85,6 +91,9 @@ dev:
 staging:
   extends:
     - prod
+  # Import dotenv files (relative to the current directory), supporting environment variables
+  dotenv:
+    - secrets.env
   env:
     HOST: staging.example.com
     DEBUG: true
@@ -109,13 +118,19 @@ dev:
 
 ```toml
 [dev]
+# Default profile to use when none is set with `--profile`
+default = true
+# Default output name for the `write` subcommand if not overridden by arguments
+output = 'development.env'
+# Extend from other profiles
 extends = ['staging']
-dotenv = ['secrets.env']
 [dev.env]
 HOST = 'localhost'
 
 [staging]
 extends = ['prod']
+# Import dotenv files (relative to the current directory), supporting environment variables
+dotenv = ['secrets.env']
 [staging.env]
 DEBUG = true
 HOST = 'staging.example.com'
@@ -129,9 +144,9 @@ PORT = 80
 ## Inheritance Behavior
 
 Inheritance is resolved in order: later profiles override earlier ones.
-`dotenv` files have the lowest priority and load first, before applying profile layers.
+Within each profile, `dotenv` files load before that profile’s environment variables.
 
-As an example, running `envprof env dev .env` with the previous YAML definition
+As an example, running `envprof --profile dev write .env` with the previous YAML definition
 as well as a sample `secrets.env`:
 
 ```sh
@@ -148,7 +163,7 @@ PORT=80
 TOKEN=secret
 ```
 
-`envprof list dev -v` shows the variables and their origins:
+`envprof --profile dev list -v` shows the variables and their origins:
 
 ```sh
 DEBUG=true              (inherited from "staging")
@@ -160,34 +175,53 @@ TOKEN=secret            (inherited from "secrets.env")
 The layering order here is:
 
 ```sh
-secrets.env -> prod -> staging -> dev
+prod -> secrets.env -> staging -> dev
 ```
 
 from lowest to highest priority (left to right).
 
 ## Flags
 
-All commands accept the following flag:
+All commands accept the following flags:
 
 ```sh
---file, -f
+--file, -f      - Specify the profile file(s) to load
+--profile, -p   - Specify the profile to use
+--verbose, -v   - Increase verbosity
 ```
 
-which can be used to specify a file (or a list of fallback files) to load.
-
+`--file` can be used to specify a file (or a list of fallback files) to load.
 Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.toml`, unless `ENVPROF_FILE` is set.
+
+`--profile` specifies the profile to activate. If no profile is specified,
+the [default profile](#yaml) will be used (if it exists).
+
+`--verbose` increases verbosity, see subcommands for details.
 
 ## Subcommands
 
+For details, run `envprof <command> --help` for the specific subcommand.
+
 <details>
-<summary><strong>list / ls</strong> — List profiles or variables</summary>
+<summary><strong>profiles / profs</strong> — List all profiles</summary>
 
 - **Usage:**
-  - `envprof list [flags] [profile] [variable]`
+  - `envprof profiles`
 
 - **Flags:**
+  - `--verbose`, `-v` – Mark active profile with asterisk
+
+</details>
+
+<details>
+<summary><strong>list / ls</strong> — List profile or the value of a variable in a profile</summary>
+
+- **Usage:**
+  - `envprof list [flags] [variable]`
+
+- **Flags:**
+  - `--oneline`, `-o` – Emit variables on a single line (implies `--verbose=false`)
   - `--verbose`, `-v` – Show variable origins
-  - `--oneline`, `-o` – Emit variables on a single line
 
 </details>
 
@@ -195,7 +229,7 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>export / x</strong> — Export profile to stdout</summary>
 
 - **Usage:**
-  - `envprof export [flags] <profile>`
+  - `envprof export [flags]`
 
 - **Flags:**
   <!-- markdownlint-disable MD038 -->
@@ -208,7 +242,10 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>write / w</strong> — Write profile(s) to file(s)</summary>
 
 - **Usage:**
-  - `envprof write [flags] [profile] [file]`
+  - `envprof write [flags] [file]`
+
+- **Flags:**
+  - `--all`, `-a` – Write all profiles
 
 </details>
 
@@ -216,7 +253,7 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>shell / sh</strong> — Spawn a subshell with profile</summary>
 
 - **Usage:**
-  - `envprof shell [flags] <profile>`
+  - `envprof shell [flags]`
 
 - **Flags:**
   - `--shell <shell>`, `-s <shell>` – Force shell (default empty string -> detected)
@@ -229,7 +266,7 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 <summary><strong>exec / ex</strong> — Execute a command with profile</summary>
 
 - **Usage:**
-  - `envprof exec [flags] <profile> <command> [args...]`
+  - `envprof exec [flags] -- <command> [args...]`
 
 - **Flags:**
   - `--isolate`, `-i` – Prevent inheriting current shell variables
@@ -255,27 +292,6 @@ variable = "ENVPROF_ACTIVE_PROFILE"
 format = '[\[envprof: $env_value\]]($style)'
 style = 'bold bright-green'
 ```
-
-### Function
-
-For convenience, you can define a shell function to quickly switch profiles:
-
-```sh
-envprof-activate() {
-  local output
-  if output="$(envprof export "${1}" 2>&1)"; then
-    eval "${output}"
-  else
-    echo "${output}" >&2
-  fi
-}
-```
-
-Use `envprof-activate dev` to switch to the `dev` profile.
-
-> [!NOTE]
-> This will export variables into your current shell, potentially overwriting existing ones.
-> Repeated use will also mix the variables from different profiles, as it won't unset them.
 
 ## Demo
 

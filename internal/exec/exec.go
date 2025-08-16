@@ -9,7 +9,7 @@ import (
 func Replace(command string, args, env []string) error {
 	path, err := exec.LookPath(command)
 	if err != nil {
-		return err //nolint:wrapcheck	// Error does not need additional wrapping.
+		return err
 	}
 
 	return replace(path, args, env)

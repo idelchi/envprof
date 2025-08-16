@@ -2,9 +2,16 @@ package profile
 
 // profile holds metadata plus an env-var map.
 type profile struct {
-	Env     Env      `toml:"env,omitempty"     yaml:"env,omitempty"`
-	DotEnv  []string `toml:"dotenv,omitempty"  yaml:"dotenv,omitempty"`
-	Extends []string `toml:"extends,omitempty" yaml:"extends,omitempty"`
+	// Env is a collection of environment variables.
+	Env Env
+	// DotEnv is a list of dotenv files to import.
+	DotEnv []string
+	// Extends is a list of references to other profiles to extend from.
+	Extends []string
+	// Output is the desired output file.
+	Output string
+	// Default indicates whether this profile is the default one.
+	Default bool
 }
 
 // newProfile creates a new profile with an empty env-var map.

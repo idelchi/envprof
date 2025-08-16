@@ -3,11 +3,12 @@ version: "3"
 vars:
   # Mandatory, otherwise the includes won't work.
   DEVENV: .devenv
+
+env:
   CONFIG_DIR: "{{.DEVENV}}/settings"
   SCRIPTS_DIR: "{{.DEVENV}}/scripts"
   BUILD_DIR: "{{ .ROOT_DIR | toSlash }}/.build"
 
-env:
   CSPELL_CONFIG: ./settings/cspell.yaml
   CODESPELL_WORDLIST: ./settings/project-words
   TYPOS_CONFIG: ./settings/typos.toml
@@ -21,6 +22,7 @@ includes:
     taskfile: "{{.DEVENV}}/taskfiles/Taskfile.go.yml"
     vars:
       COVERAGE: 0.0%
+      CONFIG_DIR: .
   github: "{{.DEVENV}}/taskfiles/Taskfile.github.yml"
 
 silent: true

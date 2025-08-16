@@ -11,5 +11,5 @@ import (
 func replace(path string, args, env []string) error {
 	argv := append([]string{path}, args...) // argv[0] required
 
-	return unix.Exec(path, argv, env) //nolint:wrapcheck	// Error does not need additional wrapping.
+	return unix.Exec(path, argv, env)
 }

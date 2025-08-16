@@ -9,7 +9,7 @@ import (
 )
 
 // Exec returns the cobra command for executing a command with the active environment.
-func Exec(envprof *[]string) *cobra.Command {
+func Exec(options *Options) *cobra.Command {
 	environment := env.FromEnv()
 
 	var (
@@ -18,7 +18,7 @@ func Exec(envprof *[]string) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "exec <profile> <command> [args...]",
+		Use:   "exec <command> [args...]",
 		Short: "Execute a command with a profile",
 		Long: heredoc.Doc(`
 			Run a command with the selected profile's environment.
@@ -28,40 +28,38 @@ func Exec(envprof *[]string) *cobra.Command {
     	`),
 		Example: heredoc.Doc(`
 			# Run a command with 'dev'
-			envprof exec dev -- make build
+			envprof --profile dev exec -- make build
 
 			# Isolated exec
-			envprof exec dev --isolate -- npm run test
+			envprof --profile dev exec --isolate -- npm run test
 
 			# Isolated exec but keep PATH
-			envprof exec dev --isolate --path -- python -V
+			envprof --profile dev exec --isolate --path -- python --version
       	`),
 		Aliases: []string{"ex"},
-		Args:    cobra.MinimumNArgs(2), //nolint:mnd	// The command a minimum of 2 arguments as documented.
+		Args:    cobra.MinimumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			prof := args[0]
-
-			profEnv, err := loadProfileEnv(*envprof, prof)
+			prof, err := loadProfile(options.EnvProf, options.Profile)
 			if err != nil {
 				return err
 			}
 
 			if !isolate {
-				profEnv.Merge(environment)
+				prof.Env.Merge(environment)
 			} else if path {
-				profEnv.Merge(env.Env{"PATH": environment.Get("PATH")})
+				prof.Env.Merge(env.Env{"PATH": environment.Get("PATH")})
 			}
 
-			cmd := args[1]
+			cmd := args[0]
 
-			if len(args) > 2 { //nolint:mnd	// The number is obvious from the context.
-				args = args[2:]
+			if len(args) > 1 {
+				args = args[1:]
 			} else {
 				args = nil
 			}
 
-			if err := execx.Replace(cmd, args, profEnv.AsSlice()); err != nil {
-				return err //nolint:wrapcheck	// Error does not need additional wrapping.
+			if err := execx.Replace(cmd, args, prof.Env.AsSlice()); err != nil {
+				return err
 			}
 
 			return nil

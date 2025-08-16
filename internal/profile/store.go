@@ -57,11 +57,18 @@ func New(file file.File) (*Store, error) {
 func (s *Store) Load() (*Store, error) {
 	data, err := s.File.Read()
 	if err != nil {
-		return nil, err //nolint:wrapcheck	// Error does not need additional wrapping.
+		return nil, err
 	}
 
 	if err = s.unmarshal(data); err != nil {
 		return nil, err
+	}
+
+	// Expand environment variables in dotenv paths.
+	for _, profile := range s.Profiles {
+		for i, path := range profile.DotEnv {
+			profile.DotEnv[i] = file.New(path).Expanded().Path()
+		}
 	}
 
 	// Make sure no nil entries exist in the profiles map.
@@ -74,5 +81,9 @@ func (s *Store) Load() (*Store, error) {
 		}
 	}
 
-	return s, err
+	if err = s.Profiles.Validate(); err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }

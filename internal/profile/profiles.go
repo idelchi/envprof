@@ -37,6 +37,50 @@ func (p Profiles) Names() []string {
 	return names
 }
 
+// Output returns the output file of the given profile.
+// Defaults to <profile>.env if not set.
+func (p Profiles) Output(name string) string {
+	if profile, ok := p[name]; ok && profile.Output != "" {
+		return profile.Output
+	}
+
+	return name + ".env"
+}
+
+// Defaults returns the names of the default profiles.
+func (p Profiles) Defaults() (defaults []string) {
+	for name, profile := range p {
+		if profile.Default {
+			defaults = append(defaults, name)
+		}
+	}
+
+	return defaults
+}
+
+// Default returns the name of the first default profile found.
+func (p Profiles) Default() string {
+	defaults := p.Defaults()
+	if len(defaults) == 0 {
+		return ""
+	}
+
+	return defaults[0]
+}
+
+// Validate checks that the profiles are valid.
+func (p Profiles) Validate() error {
+	var errs []error
+
+	defaults := p.Defaults()
+
+	if len(defaults) > 1 {
+		errs = append(errs, fmt.Errorf("more than one default profile: %v", defaults))
+	}
+
+	return errors.Join(errs...)
+}
+
 // Environment returns the merged environment variables for a profile, resolving dependencies.
 //
 //nolint:gocognit	// TODO(Idelchi): Refactor this function to reduce cognitive complexity.
@@ -71,28 +115,28 @@ func (p Profiles) Environment(name string) (*InheritanceTracker, error) {
 		Inheritance: make(Inheritance),
 	}
 
-	// Check if there's some dotenv files to load and load them first.
-	profile := p[name]
-	if len(profile.DotEnv) > 0 {
-		for _, file := range profile.DotEnv {
-			dotenv, err := env.FromDotEnv(file)
-			if err != nil {
-				return nil, fmt.Errorf("profile %q: %w", name, err)
-			}
-
-			for key, value := range dotenv {
-				if err := final.Env.AddPair(key, value); err != nil {
-					return nil, fmt.Errorf("profile %q: %w", name, err)
-				}
-
-				final.Inheritance[key] = file
-			}
-		}
-	}
-
 	errs := []error{}
 
 	for _, profile := range chain {
+		// Load this profile's dotenv files first (in listed order).
+		if len(p[profile].DotEnv) > 0 {
+			for _, file := range p[profile].DotEnv {
+				dotenv, err := env.FromDotEnv(file)
+				if err != nil {
+					return nil, fmt.Errorf("profile %q: %w", profile, err)
+				}
+
+				for key, value := range dotenv {
+					if err := final.Env.AddPair(key, value); err != nil {
+						return nil, fmt.Errorf("profile %q: %w", profile, err)
+					}
+
+					final.Inheritance[key] = file
+				}
+			}
+		}
+
+		// Then overlay this profile's inline env.
 		m := p[profile].Env
 
 		stringified, err := m.Stringified()

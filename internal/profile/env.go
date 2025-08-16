@@ -44,6 +44,7 @@ func (e *Env) UnmarshalYAML(node ast.Node) error {
 // FromEnv initializes Env from an env.Env.
 func (e *Env) FromEnv(env env.Env) {
 	*e = make(Env)
+
 	for k, v := range env {
 		(*e)[k] = v
 	}
@@ -65,11 +66,11 @@ func (e *Env) Stringified() (env.Env, error) {
 	for _, key := range keys {
 		str, err := Stringify((*e)[key])
 		if err != nil {
-			return nil, fmt.Errorf("profile %q: %w", key, err)
+			return nil, fmt.Errorf("env %q: %w", key, err)
 		}
 
 		if err := env.AddPair(key, str); err != nil {
-			return nil, fmt.Errorf("profile %q: %w", key, err)
+			return nil, fmt.Errorf("env %q: %w", key, err)
 		}
 	}
 

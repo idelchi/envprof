@@ -11,67 +11,48 @@ import (
 // List returns the cobra command for listing profiles and their variables.
 //
 //nolint:forbidigo	// Command prints out to the console.
-func List(envprof *[]string) *cobra.Command {
-	var (
-		verbose bool
-		oneline bool
-	)
+func List(options *Options) *cobra.Command {
+	var oneline bool
 
 	cmd := &cobra.Command{
-		Use:   "list [profile] [key]",
+		Use:   "list [key]",
 		Short: "List profiles and their variables",
 		Long: heredoc.Doc(`
-			Lists all profiles (sorted),
-			all variables for a specific profile,
+			List all variables for a specific profile,
 			or the value of a variable for a specific profile.
 		`),
 		Example: heredoc.Doc(`
-			# List all profiles
-			$ envprof list
-
 			# List all variables for 'dev' with sources
-			$ envprof list dev -v
+			$ envprof --profile dev -v list
 
 			# Show the value of HOST in 'dev'
-			$ envprof list dev HOST
+			$ envprof --profile dev list HOST
 		`),
 		Aliases: []string{"ls"},
-		Args:    cobra.MaximumNArgs(2), //nolint:mnd	// The command takes up to 2 arguments as documented.
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				profiles, err := load(*envprof)
-				if err != nil {
-					return err
-				}
-				for _, profile := range profiles.Names() {
-					fmt.Println(profile)
-				}
+			nArgs := len(args)
 
-				return nil
-			}
-
-			prof := args[0]
-
-			vars, err := loadProfileVars(*envprof, prof)
+			vars, err := loadProfile(options.EnvProf, options.Profile)
 			if err != nil {
 				return err
 			}
 
 			if oneline {
-				verbose = false
+				options.Verbose = false
 			}
 
 			var output string
 
-			if len(args) > 1 {
-				if !vars.Env.Exists(args[1]) {
-					//nolint:err113	// Occasional dynamic errors are fine.
-					return fmt.Errorf("key %q not found in profile %q", args[1], prof)
+			if nArgs > 0 {
+				variable := args[0]
+				if !vars.Env.Exists(variable) {
+					return fmt.Errorf("key %q not found in profile %q", variable, vars.Name)
 				}
 
-				output = vars.Format(args[1], verbose, false)
+				output = vars.Format(variable, options.Verbose, false)
 			} else {
-				output = vars.FormatAll("", verbose)
+				output = vars.FormatAll("", options.Verbose)
 			}
 
 			if oneline {
@@ -86,7 +67,6 @@ func List(envprof *[]string) *cobra.Command {
 
 	cmd.Flags().SortFlags = false
 
-	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show from which source each variable is inherited")
 	cmd.Flags().BoolVarP(&oneline, "oneline", "o", false, "Emit variables on a single line")
 
 	return cmd

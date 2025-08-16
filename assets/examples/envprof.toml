@@ -1,11 +1,17 @@
 [dev]
+# Default profile to use when none is set with `--profile`
+default = true
+# Default output name for the `write` subcommand if not overridden by arguments
+output = 'development.env'
+# Extend from other profiles
 extends = ['staging']
-dotenv = ['secrets.env']
 [dev.env]
 HOST = 'localhost'
 
 [staging]
 extends = ['prod']
+# Import dotenv files (relative to the current directory), supporting environment variables
+dotenv = ['secrets.env']
 [staging.env]
 DEBUG = true
 HOST = 'staging.example.com'

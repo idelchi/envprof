@@ -24,6 +24,7 @@ type Inheritance map[string]string
 // Format returns the formatted value of a single variable.
 func (i InheritanceTracker) Format(key string, verbose, withKey bool) string {
 	val := i.Env.Get(key)
+
 	if withKey {
 		val = fmt.Sprintf("%v=%v", key, val)
 	}
@@ -42,12 +43,13 @@ func (i InheritanceTracker) FormatAll(prefix string, verbose bool) string {
 	out := []string{}
 
 	for _, k := range i.Env.Keys() {
-		s := i.Format(k, verbose, true)
+		str := i.Format(k, verbose, true)
+
 		if prefix != "" {
-			s = fmt.Sprintf("%s%s", prefix, s)
+			str = fmt.Sprintf("%s%s", prefix, str)
 		}
 
-		out = append(out, s)
+		out = append(out, str)
 	}
 
 	return strings.Join(out, "\n")

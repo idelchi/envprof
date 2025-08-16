@@ -10,11 +10,11 @@ import (
 // Export defines the command for exporting a profile's variables.
 //
 //nolint:forbidigo	// Command prints out to the console.
-func Export(envprof *[]string) *cobra.Command {
+func Export(options *Options) *cobra.Command {
 	prefix := "export "
 
 	cmd := &cobra.Command{
-		Use:   "export <profile> [file]",
+		Use:   "export",
 		Short: "Emit '<prefix>KEY=VAL' lines",
 		Long: heredoc.Doc(`
 			Print lines suitable for eval in the current shell:
@@ -27,17 +27,15 @@ func Export(envprof *[]string) *cobra.Command {
 		`),
 		Example: heredoc.Doc(`
 			# Emit 'export KEY=VAL' lines for 'dev'
-			envprof export dev
+			envprof --profile dev export
 
 			# Use a custom prefix (PowerShell)
-			envprof export dev --prefix "$env:"
+			envprof --profile dev export --prefix "$env:"
 		`),
 		Aliases: []string{"x"},
-		Args:    cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			prof := args[0]
-
-			vars, err := loadProfileVars(*envprof, prof)
+		Args:    cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			vars, err := loadProfile(options.EnvProf, options.Profile)
 			if err != nil {
 				return err
 			}

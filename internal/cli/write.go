@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/MakeNowJust/heredoc/v2"
@@ -12,59 +13,77 @@ import (
 
 // Write defines the command for writing profile variables to one or multiple dotenv files.
 //
-//nolint:forbidigo	// Command prints out to the console.
-func Write(envprof *[]string) *cobra.Command {
+// TODO(Idelchi): Refactor this function to reduce cognitive complexity.
+//
+//nolint:forbidigo,gocognit	// Command prints out to the console.
+func Write(options *Options) *cobra.Command {
+	var all bool
+
 	cmd := &cobra.Command{
-		Use:   "write [profile] [file]",
+		Use:   "write [file]",
 		Short: "Write profile variables to dotenv files",
 		Long: heredoc.Doc(`
 			Write variables to dotenv files.
 
-			No arguments: write all profiles to <profile>.env files.
-			<profile>: write <profile> to <profile>.env.
-			<profile> <file>: write <profile> to <file>.
+			Files are written out as <profile>.env, unless set in the profile configuration file, or
+			overridden with the [file] argument.
 		`),
 		Example: heredoc.Doc(`
 			# Write 'dev' to dev.env
-			envprof write dev
+			envprof --profile dev write
 
 			# Write 'dev' to a specific file
-			envprof write dev .env
+			envprof --profile dev write dev
 
 			# Write all profiles to <profile>.env files
-			envprof write
+			envprof write --all
 		`),
 		Aliases: []string{"w"},
-		Args:    cobra.RangeArgs(0, 2), //nolint:mnd	// The command takes between 0 and 2 arguments as documented.
+		Args:    cobra.RangeArgs(0, 1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			profiles, err := load(*envprof)
+			nArgs := len(args)
+			if nArgs > 0 && all {
+				return errors.New(
+					"'--all' and [file] are incompatible and may not be used together",
+				)
+			}
+
+			profiles, err := loadProfiles(options.EnvProf)
 			if err != nil {
 				return err
 			}
 
 			var dotenvs []profile.DotEnv
-			switch len(args) {
-			case 0:
-				profiles := profiles.Names()
-				dotenvs = make([]profile.DotEnv, 0, len(profiles))
-				for _, prof := range profiles {
-					dotenvs = append(dotenvs, profile.DotEnv{Profile: prof, Path: file.New(prof + ".env")})
+			switch {
+			case all:
+				profs := profiles.Names()
+				dotenvs = make([]profile.DotEnv, 0, len(profs))
+				for _, prof := range profs {
+					output := file.New(profiles.Output(prof))
+					dotenvs = append(dotenvs, profile.DotEnv{Profile: prof, Path: output})
 				}
-			case 1:
-				prof := args[0]
-				dotenvs = []profile.DotEnv{{Profile: prof, Path: file.New(prof + ".env")}}
-			case 2: //nolint:mnd	// The number is obvious from the context.
-				dotenvs = []profile.DotEnv{{Profile: args[0], Path: file.New(args[1])}}
+			default:
+				prof, err := profileOrDefault(profiles, options.Profile)
+				if err != nil {
+					return err
+				}
+
+				output := file.New(profiles.Output(prof))
+				if nArgs == 1 {
+					output = file.New(args[0])
+				}
+
+				dotenvs = []profile.DotEnv{{Profile: prof, Path: output}}
 			}
 
 			for _, dotenv := range dotenvs {
 				profile, err := profiles.Environment(dotenv.Profile)
 				if err != nil {
-					return err //nolint:wrapcheck // Error does not need additional wrapping.
+					return err
 				}
 
 				if err := profile.ToDotEnv(dotenv.Path); err != nil {
-					return err //nolint:wrapcheck // Error does not need additional wrapping.
+					return err
 				}
 
 				fmt.Printf("Wrote profile %q to %q\n", dotenv.Profile, dotenv.Path)
@@ -73,6 +92,10 @@ func Write(envprof *[]string) *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().SortFlags = false
+
+	cmd.Flags().BoolVarP(&all, "all", "a", false, "Write all profiles, ignoring the active profile")
 
 	return cmd
 }

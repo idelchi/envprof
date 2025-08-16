@@ -8,12 +8,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Options represent the root level configuration.
+type Options struct {
+	// EnvProf is the list of candidate profile files to load.
+	EnvProf []string
+	// Profile is the selected profile.
+	Profile string
+	// Verbose enables verbose output.
+	Verbose bool
+}
+
 // Execute runs the root command for the envprof CLI application.
 func Execute(version string) error {
-	envprof := &[]string{
-		"envprof.yaml",
-		"envprof.yml",
-		"envprof.toml",
+	options := &Options{
+		EnvProf: []string{
+			"envprof.yaml",
+			"envprof.yml",
+			"envprof.toml",
+		},
 	}
 
 	root := &cobra.Command{
@@ -29,29 +41,28 @@ func Execute(version string) error {
 
 			Use subcommands to list profiles, export variables, write dotenv files,
 			spawn a subshell, or exec a command with a selected profile.
-		`, " - "+strings.Join(*envprof, "\n - ")),
+		`, " - "+strings.Join(options.EnvProf, "\n - ")),
 		Example: heredoc.Doc(`
 			# List variables for 'dev'
-			envprof list dev -v
+			envprof --profile dev list -v
 
 			# Create a dotenv file from a profile
-			envprof write dev .env
+			envprof --profile dev write .env
 
 			# Export to current shell
-			eval "$(envprof export dev)"
+			eval "$(envprof --profile dev export)"
 
 			# Enter a subshell with a profile
-			envprof shell dev --shell zsh
+			envprof --profile dev shell --shell zsh
 
 			# Execute a command with a profile
-			envprof exec dev -- ls -la
+			envprof --profile dev exec -- ls -la
 		`),
-		Version:       version,
-		SilenceErrors: true,
-		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
-			// Do not print usage after basic validation has been done.
-			cmd.SilenceUsage = true
-		},
+		Version:          version,
+		SilenceErrors:    true,
+		TraverseChildren: true,
+		SilenceUsage:     true,
+		RunE:             UnknownSubcommandAction,
 	}
 
 	root.SetVersionTemplate("{{ .Version }}\n")
@@ -64,22 +75,28 @@ func Execute(version string) error {
 	cobra.EnableCommandSorting = false
 
 	if file := os.Getenv("ENVPROF_FILE"); file != "" {
-		envprof = &[]string{file}
+		options.EnvProf = []string{file}
 	}
 
+	root.Flags().
+		StringSliceVarP(&options.EnvProf, "file", "f", options.EnvProf, "Config file to use, in order of preference")
+
+	root.Flags().
+		StringVarP(&options.Profile, "profile", "p", "", "Profile to activate")
 	root.PersistentFlags().
-		StringSliceVarP(envprof, "file", "f", *envprof, "config file to use, in order of preference")
+		BoolVarP(&options.Verbose, "verbose", "v", false, "Increase verbosity level")
 
 	root.AddCommand(
-		List(envprof),
-		Export(envprof),
-		Write(envprof),
-		Shell(envprof),
-		Exec(envprof),
+		Profiles(options),
+		List(options),
+		Export(options),
+		Write(options),
+		Shell(options),
+		Exec(options),
 	)
 
 	if err := root.Execute(); err != nil {
-		return err //nolint:wrapcheck	// Error does not need additional wrapping.
+		return err
 	}
 
 	return nil

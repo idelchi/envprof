@@ -14,6 +14,7 @@ import (
 // Spawn launches a new shell with the specified environment variables.
 func Spawn(shell string, env []string) error {
 	cmd := exec.CommandContext(context.Background(), shell)
+
 	cmd.Env = env
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -44,6 +45,7 @@ func Current() string {
 		default:
 			return "cmd.exe"
 		}
+
 	default:
 		return "sh"
 	}

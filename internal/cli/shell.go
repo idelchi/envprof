@@ -14,7 +14,7 @@ import (
 // Shell returns the cobra command for entering a scoped shell with the active environment.
 //
 //nolint:forbidigo	// Command prints out to the console.
-func Shell(envprof *[]string) *cobra.Command {
+func Shell(options *Options) *cobra.Command {
 	environment := env.FromEnv()
 
 	var (
@@ -24,7 +24,7 @@ func Shell(envprof *[]string) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "shell <profile>",
+		Use:   "shell",
 		Short: "Spawn a subshell with a profile",
 		Long: heredoc.Doc(`
 			Launch a new shell with the selected profile's environment.
@@ -33,60 +33,64 @@ func Shell(envprof *[]string) *cobra.Command {
 		`),
 		Example: heredoc.Doc(`
 			# Subshell with profile
-			envprof shell dev
+			envprof --profile dev shell
 
 			# Isolated subshell
-			envprof shell dev --isolate
+			envprof --profile dev shell --isolate
 
 			# Isolated but keep PATH
-			envprof shell dev --isolate --path
+			envprof --profile dev shell --isolate --path
 
 			# Use a specific shell
-			envprof shell dev --shell zsh
+			envprof --profile dev shell --shell zsh
 		`),
 		Aliases: []string{"sh"},
-		Args:    cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			if active := environment.Get("ENVPROF_ACTIVE_PROFILE"); environment.Exists("ENVPROF_ACTIVE_PROFILE") {
-				//nolint:err113	// Occasional dynamic errors are fine.
+		Args:    cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			if active := environment.Get("ENVPROF_ACTIVE_PROFILE"); environment.Exists(
+				"ENVPROF_ACTIVE_PROFILE",
+			) {
 				return fmt.Errorf(
 					"already inside profile %q, nested profiles are not allowed, please exit first",
 					active,
 				)
 			}
 
-			prof := args[0]
-
-			profEnv, err := loadProfileEnv(*envprof, prof)
+			prof, err := loadProfile(options.EnvProf, options.Profile)
 			if err != nil {
 				return err
 			}
 
-			if err = profEnv.AddPair("ENVPROF_ACTIVE_PROFILE", prof); err != nil {
-				return err //nolint:wrapcheck	// Error does not need additional wrapping.
+			if err = prof.Env.AddPair("ENVPROF_ACTIVE_PROFILE", prof.Name); err != nil {
+				return err
 			}
 
 			if !isolate {
-				profEnv.Merge(environment)
+				prof.Env.Merge(environment)
 			} else if path {
-				profEnv.Merge(env.Env{"PATH": environment.Get("PATH")})
+				prof.Env.Merge(env.Env{"PATH": environment.Get("PATH")})
 			}
 
 			if shell == "" {
 				shell = terminal.Current()
 			}
 
-			fmt.Printf("Entering shell %q with profile %q...\n", file.New(shell).WithoutExtension().Base(), prof)
+			fmt.Printf(
+				"Entering shell %q with profile %q...\n",
+				file.New(shell).WithoutExtension().Base(),
+				prof.Name,
+			)
 
-			if err := terminal.Spawn(shell, profEnv.AsSlice()); err != nil {
-				return err //nolint:wrapcheck	// Error does not need additional wrapping.
+			if err := terminal.Spawn(shell, prof.Env.AsSlice()); err != nil {
+				return err
 			}
 
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVarP(&shell, "shell", "s", shell, "Shell to launch (leave empty to auto-detect).")
+	cmd.Flags().
+		StringVarP(&shell, "shell", "s", shell, "Shell to launch (leave empty to auto-detect).")
 	cmd.Flags().BoolVarP(&isolate, "isolate", "i", false, "Isolate from parent environment.")
 	cmd.Flags().BoolVarP(&path, "path", "p", false, "Include the current PATH in the environment.")
 

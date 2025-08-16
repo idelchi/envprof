@@ -19,7 +19,10 @@ func replace(path string, args, env []string) error {
 	ext := strings.ToLower(file.New(path).Extension())
 	if ext == "bat" || ext == "cmd" {
 		//nolint:gosec	// The user can execute whatever they'd like.
-		command = exec.CommandContext(context.Background(), "cmd.exe", append([]string{"/c", path}, args...)...)
+		command = exec.CommandContext(
+			context.Background(),
+			"cmd.exe",
+			append([]string{"/c", path}, args...)...)
 	} else {
 		command = exec.CommandContext(context.Background(), path, args...)
 	}
@@ -34,7 +37,7 @@ func replace(path string, args, env []string) error {
 			os.Exit(ee.ExitCode()) //nolint:forbidigo // Allowing exit code propagation.
 		}
 
-		return err //nolint:wrapcheck	// Error does not need additional wrapping.
+		return err
 	}
 
 	if ps := command.ProcessState; ps != nil {
