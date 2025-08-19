@@ -22,7 +22,18 @@ func Diff(options *Options) *cobra.Command {
 			 + KEY="VALUE"   means the key was added
 			 ~ KEY: "OLD" -> "NEW"   means the key changed
 		`),
-		Args: cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+				return fmt.Errorf(
+					"%q requires a <profile> as it's only positional argument, received %d arguments: %v",
+					cmd.Name(),
+					len(args),
+					args,
+				)
+			}
+
+			return nil
+		},
 		RunE: func(_ *cobra.Command, args []string) error {
 			env1, err := LoadProfile(options)
 			if err != nil {
