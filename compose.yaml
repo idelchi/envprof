@@ -1,0 +1,57 @@
+services:
+  build:
+    build:
+      args:
+        - ENVPROF_VERSION=local
+      target: build
+    image: idelchi/envprof:build
+    container_name: envprof
+    hostname: envprof
+    volumes:
+      - .:/home/user/ws
+    extra_hosts:
+      - host:host-gateway
+    working_dir: /home/user/ws
+    networks:
+      - envprof
+
+  final:
+    extends: build
+    working_dir: /home/user/
+    image: idelchi/envprof:final
+    build:
+      args:
+        - ENVPROF_VERSION=local
+      target: final
+
+  gifs:
+    build:
+      dockerfile: Dockerfile.gifs
+    container_name: machine
+    hostname: machine
+    volumes:
+      - ./.bashrc:/home/user/.bashrc
+      - ./assets/examples/envprof.toml:/home/user/envprof.toml
+      - ./assets/examples/secrets.env:/home/user/secrets.env
+      - ./assets/gifs:/home/user/gifs
+      - ./assets/tapes:/home/user/tapes
+    extra_hosts:
+      - host:host-gateway
+    working_dir: /home/user
+    networks:
+      - envprof
+    entrypoint:
+      - /bin/bash
+      - -c
+    command:
+      - |
+        source /home/user/.bashrc
+        pall
+
+networks:
+  envprof:
+    name: envprof
+    driver: bridge
+
+include:
+  - ${DOTAI}/compose.yaml

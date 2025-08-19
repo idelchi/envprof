@@ -16,6 +16,8 @@ type Options struct {
 	Profile string
 	// Verbose enables verbose output.
 	Verbose bool
+	// Overlay contains the profiles to overlay on top of the current profile.
+	Overlay []string
 }
 
 // Execute runs the root command for the envprof CLI application.
@@ -85,8 +87,11 @@ func Execute(version string) error {
 		StringVarP(&options.Profile, "profile", "p", "", "Profile to activate")
 	root.PersistentFlags().
 		BoolVarP(&options.Verbose, "verbose", "v", false, "Increase verbosity level")
+	root.Flags().
+		StringSliceVarP(&options.Overlay, "overlay", "o", nil, "Profiles to overlay on top of the current profile")
 
 	root.AddCommand(
+		Path(options),
 		Profiles(options),
 		List(options),
 		Export(options),

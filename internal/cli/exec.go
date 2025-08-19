@@ -39,7 +39,7 @@ func Exec(options *Options) *cobra.Command {
 		Aliases: []string{"ex"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			prof, err := loadProfile(options.EnvProf, options.Profile)
+			prof, err := loadProfile(options)
 			if err != nil {
 				return err
 			}

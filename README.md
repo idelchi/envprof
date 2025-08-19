@@ -68,21 +68,32 @@ eval "$(envprof --profile dev export)"
 envprof --profile dev exec -- ls -la
 ```
 
-## Format
+## Configuration
 
-Complex types (arrays, maps) are serialized as JSON; all other values are simple strings.
+The following keys are supported:
 
-Non-scalars are emitted as minified JSON wrapped in single quotes.
+- `default`: Marks the profile as the default to use when none is specified with `--profile`
+- `output`: Specifies the default output file for the `write` subcommand if none is provided with `[file]`
+- `extends`: Lists profiles and `dotenv` files to inherit from
+- `env`: Defines environment variables for the profile
+
+For `extends`, use `profile:<name>` or `dotenv:<path>` to specify the type. If the leading part is omitted, it defaults to `profile:`.
+As a consequence, using `:` inside profile names is not allowed.
+
+`dotenv` files allow for environment variable expansion in the path segment using `${VAR}` syntax.
+If not absolute, they are imported relative to the current directory.
+
+`env` is serialized according to:
+
+- Complex types (arrays, maps) are serialized as JSON; all other values are simple strings.
+- Non-scalars are emitted as minified JSON wrapped in single quotes.
 
 ### YAML
 
 ```yaml
 dev:
-  # Default profile to use when none is set with `--profile`
   default: true
-  # Default output name for the `write` subcommand if not overridden by arguments
   output: development.env
-  # Extend from other profiles
   extends:
     - staging
   env:
@@ -91,9 +102,7 @@ dev:
 staging:
   extends:
     - prod
-  # Import dotenv files (relative to the current directory), supporting environment variables
-  dotenv:
-    - secrets.env
+    - dotenv:secrets.env
   env:
     HOST: staging.example.com
     DEBUG: true
@@ -118,19 +127,14 @@ dev:
 
 ```toml
 [dev]
-# Default profile to use when none is set with `--profile`
 default = true
-# Default output name for the `write` subcommand if not overridden by arguments
 output = 'development.env'
-# Extend from other profiles
 extends = ['staging']
 [dev.env]
 HOST = 'localhost'
 
 [staging]
-extends = ['prod']
-# Import dotenv files (relative to the current directory), supporting environment variables
-dotenv = ['secrets.env']
+extends = ['prod', 'dotenv:secrets.env']
 [staging.env]
 DEBUG = true
 HOST = 'staging.example.com'
@@ -143,8 +147,7 @@ PORT = 80
 
 ## Inheritance Behavior
 
-Inheritance is resolved in order: later profiles override earlier ones.
-Within each profile, `dotenv` files load before that profile’s environment variables.
+Inheritance is resolved in order: later imports override earlier ones.
 
 As an example, running `envprof --profile dev write .env` with the previous YAML definition
 as well as a sample `secrets.env`:
@@ -169,7 +172,7 @@ TOKEN=secret
 DEBUG=true              (inherited from "staging")
 HOST=localhost
 PORT=80                 (inherited from "prod")
-TOKEN=secret            (inherited from "secrets.env")
+TOKEN=secret            (inherited from "staging" -> "secrets.env")
 ```
 
 The layering order here is:
@@ -187,6 +190,7 @@ All commands accept the following flags:
 ```sh
 --file, -f      - Specify the profile file(s) to load
 --profile, -p   - Specify the profile to use
+--overlay, -o   - Overlay other profiles
 --verbose, -v   - Increase verbosity
 ```
 
@@ -195,6 +199,8 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 
 `--profile` specifies the profile to activate. If no profile is specified,
 the [default profile](#yaml) will be used (if it exists).
+
+`--overlay` allows you to specify additional profiles to overlay on top of the selected profile.
 
 `--verbose` increases verbosity, see subcommands for details.
 
@@ -206,6 +212,7 @@ For details, run `envprof <command> --help` for the specific subcommand.
 <summary><strong>profiles / profs</strong> — List all profiles</summary>
 
 - **Usage:**
+
   - `envprof profiles`
 
 - **Flags:**
@@ -217,6 +224,7 @@ For details, run `envprof <command> --help` for the specific subcommand.
 <summary><strong>list / ls</strong> — List profile or the value of a variable in a profile</summary>
 
 - **Usage:**
+
   - `envprof list [flags] [variable]`
 
 - **Flags:**
@@ -229,6 +237,7 @@ For details, run `envprof <command> --help` for the specific subcommand.
 <summary><strong>export / x</strong> — Export profile to stdout</summary>
 
 - **Usage:**
+
   - `envprof export [flags]`
 
 - **Flags:**
@@ -242,6 +251,7 @@ For details, run `envprof <command> --help` for the specific subcommand.
 <summary><strong>write / w</strong> — Write profile(s) to file(s)</summary>
 
 - **Usage:**
+
   - `envprof write [flags] [file]`
 
 - **Flags:**
@@ -253,6 +263,7 @@ For details, run `envprof <command> --help` for the specific subcommand.
 <summary><strong>shell / sh</strong> — Spawn a subshell with profile</summary>
 
 - **Usage:**
+
   - `envprof shell [flags]`
 
 - **Flags:**
@@ -266,6 +277,7 @@ For details, run `envprof <command> --help` for the specific subcommand.
 <summary><strong>exec / ex</strong> — Execute a command with profile</summary>
 
 - **Usage:**
+
   - `envprof exec [flags] -- <command> [args...]`
 
 - **Flags:**

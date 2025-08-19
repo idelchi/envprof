@@ -1,0 +1,2074 @@
+// === AGGR: BEGIN: envprof.yaml
+dev:
+  default: true
+  output: development.env
+  extends:
+    - dotenv:secrets*.env
+    - staging
+  env:
+    HOST: localhost
+
+staging:
+  extends:
+    - prod
+    - dotenv:secrets.env
+  env:
+    HOST: staging.example.com
+    DEBUG: true
+    STAGES: false
+
+prod:
+  extends:
+    - dotenv:secrets2.env
+  env:
+    HOST: prod.example.com
+    PORT: 80
+    DEBUG: false
+// === AGGR: END: envprof.yaml
+
+// === AGGR: BEGIN: internal/cli/common.go
+package cli
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/spf13/cobra"
+
+	"github.com/idelchi/envprof/internal/environment"
+	"github.com/idelchi/envprof/internal/envprof"
+	"github.com/idelchi/envprof/internal/profiles"
+	"github.com/idelchi/godyl/pkg/path/file"
+	"github.com/idelchi/godyl/pkg/path/files"
+)
+
+// loadProfiles loads the profile store from the specified file and fallbacks.
+func loadProfiles(paths []string) (profiles.Profiles, file.File, error) {
+	profiles, file, err := envprof.Load(files.New("", paths...))
+	if err != nil {
+		return nil, file, err
+	}
+
+	return profiles, file, nil
+}
+
+// loadProfile fully loads and resolves the profile variables from the specified file and fallbacks.
+func loadProfile(options *Options) (environment.Environment, error) {
+	profiles, _, err := loadProfiles(options.EnvProf)
+	if err != nil {
+		return environment.Environment{}, err
+	}
+
+	profile, err := profiles.GetOrDefault(options.Profile)
+	if err != nil {
+		return environment.Environment{}, err
+	}
+
+	return profiles.Environment(profile, options.Overlay...)
+}
+
+// loadPlan returns the plan for the specified profile.
+func loadPlan(options *Options) (profiles.Steps, error) {
+	profiles, _, err := loadProfiles(options.EnvProf)
+	if err != nil {
+		return nil, err
+	}
+
+	profile, err := profiles.GetOrDefault(options.Profile)
+	if err != nil {
+		return nil, err
+	}
+
+	return profiles.Plan(profile)
+}
+
+// UnknownSubcommandAction handles unknown cobra subcommands.
+// Implements cobra.Command.RunE to provide helpful error messages
+// and suggestions when an unknown subcommand is used. Required
+// when TraverseChildren is true, as this disables cobra's built-in
+// suggestion system. See:
+// - https://github.com/spf13/cobra/issues/981
+// - https://github.com/containerd/nerdctl/blob/242e6fc6e861b61b878bd7df8bf25e95674c036d/cmd/nerdctl/main.go#L401-L418
+func UnknownSubcommandAction(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return cmd.Help() //nolint: wrapcheck	// The help message (error) should be returned as is
+	}
+
+	err := fmt.Sprintf("unknown subcommand %q for %q", args[0], cmd.Name())
+
+	if suggestions := cmd.SuggestionsFor(args[0]); len(suggestions) > 0 {
+		err += "\n\nDid you mean this?\n"
+
+		for _, s := range suggestions {
+			err += fmt.Sprintf("\t%v\n", s)
+		}
+	}
+
+	return errors.New(err) //nolint: err113 	 // The error should be returned as is
+}
+// === AGGR: END: internal/cli/common.go
+
+// === AGGR: BEGIN: internal/cli/doc.go
+// Package cli implements the command-line interface for envprof.
+package cli
+// === AGGR: END: internal/cli/doc.go
+
+// === AGGR: BEGIN: internal/cli/exec.go
+package cli
+
+import (
+	"github.com/MakeNowJust/heredoc/v2"
+	"github.com/spf13/cobra"
+
+	execx "github.com/idelchi/envprof/internal/exec"
+	"github.com/idelchi/godyl/pkg/env"
+)
+
+// Exec returns the cobra command for executing a command with the active environment.
+func Exec(options *Options) *cobra.Command {
+	environment := env.FromEnv()
+
+	var (
+		isolate bool
+		path    bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "exec <command> [args...]",
+		Short: "Execute a command with a profile",
+		Long: heredoc.Doc(`
+			Run a command with the selected profile's environment.
+
+			On Unix, replaces the current process.
+			On Windows, runs and exits with the same code.
+    	`),
+		Example: heredoc.Doc(`
+			# Run a command with 'dev'
+			envprof --profile dev exec -- make build
+
+			# Isolated exec
+			envprof --profile dev exec --isolate -- npm run test
+
+			# Isolated exec but keep PATH
+			envprof --profile dev exec --isolate --path -- python --version
+      	`),
+		Aliases: []string{"ex"},
+		Args:    cobra.MinimumNArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			prof, err := loadProfile(options)
+			if err != nil {
+				return err
+			}
+
+			if !isolate {
+				prof.Env.Merge(environment)
+			} else if path {
+				prof.Env.Merge(env.Env{"PATH": environment.Get("PATH")})
+			}
+
+			cmd := args[0]
+
+			if len(args) > 1 {
+				args = args[1:]
+			} else {
+				args = nil
+			}
+
+			if err := execx.Replace(cmd, args, prof.Env.AsSlice()); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVarP(&isolate, "isolate", "i", false, "Isolate from parent environment.")
+	cmd.Flags().BoolVarP(&path, "path", "p", false, "Include the current PATH in the environment.")
+
+	return cmd
+}
+// === AGGR: END: internal/cli/exec.go
+
+// === AGGR: BEGIN: internal/cli/export.go
+package cli
+
+import (
+	"fmt"
+
+	"github.com/MakeNowJust/heredoc/v2"
+	"github.com/spf13/cobra"
+
+	"github.com/idelchi/envprof/internal/environment"
+)
+
+// Export defines the command for exporting a profile's variables.
+//
+//nolint:forbidigo	// Command prints out to the console.
+func Export(options *Options) *cobra.Command {
+	prefix := "export "
+
+	cmd := &cobra.Command{
+		Use:   "export",
+		Short: "Emit '<prefix>KEY=VAL' lines",
+		Long: heredoc.Doc(`
+			Print lines suitable for eval in the current shell:
+
+			 <prefix>KEY1=VAL1
+			 <prefix>KEY2=VAL2
+			 ...
+
+			Default prefix is "export ". Override with --prefix (e.g., "$env:" on PowerShell).
+		`),
+		Example: heredoc.Doc(`
+			# Emit 'export KEY=VAL' lines for 'dev'
+			envprof --profile dev export
+
+			# Use a custom prefix (PowerShell)
+			envprof --profile dev export --prefix "$env:"
+		`),
+		Aliases: []string{"x"},
+		Args:    cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			env, err := loadProfile(options)
+			if err != nil {
+				return err
+			}
+
+			formatter := environment.Formatter{
+				WithKey: true,
+				Prefix:  prefix,
+			}
+
+			envs := formatter.All(env)
+
+			fmt.Println(envs)
+
+			return nil
+		},
+	}
+
+	cmd.Flags().SortFlags = false
+
+	cmd.Flags().StringVarP(&prefix, "prefix", "p", prefix, "Prefix for the export command")
+
+	return cmd
+}
+// === AGGR: END: internal/cli/export.go
+
+// === AGGR: BEGIN: internal/cli/list.go
+package cli
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/MakeNowJust/heredoc/v2"
+	"github.com/spf13/cobra"
+
+	"github.com/idelchi/envprof/internal/environment"
+)
+
+// List returns the cobra command for listing profiles and their variables.
+//
+//nolint:forbidigo	// Command prints out to the console.
+func List(options *Options) *cobra.Command {
+	var oneline bool
+	var planOnly bool
+
+	cmd := &cobra.Command{
+		Use:   "list [key]",
+		Short: "List profiles and their variables",
+		Long: heredoc.Doc(`
+			List all variables for a specific profile,
+			or the value of a variable for a specific profile.
+		`),
+		Example: heredoc.Doc(`
+			# List all variables for 'dev' with sources
+			$ envprof --profile dev -v list
+
+			# Show the value of HOST in 'dev'
+			$ envprof --profile dev list HOST
+		`),
+		Aliases: []string{"ls"},
+		Args:    cobra.MaximumNArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			if planOnly {
+				steps, err := loadPlan(options)
+				if err != nil {
+					return err
+				}
+
+				fmt.Println(steps.Chain())
+
+				return nil
+			}
+
+			nArgs := len(args)
+
+			env, err := loadProfile(options)
+			if err != nil {
+				return err
+			}
+
+			var output string
+
+			const padding = 60
+
+			formatter := environment.Formatter{
+				// oneline implies not verbose
+				WithOrigin: options.Verbose && !oneline,
+				WithKey:    true,
+				Padding:    padding,
+			}
+
+			if nArgs == 1 {
+				variable := args[0]
+				if !env.Env.Exists(variable) {
+					return fmt.Errorf("key %q not found in profile %q", variable, env.Name)
+				}
+
+				formatter.WithKey = false
+
+				output = formatter.Key(variable, env)
+			} else {
+				output = formatter.All(env)
+			}
+
+			if oneline {
+				output = strings.Join(strings.Fields(output), " ")
+			}
+
+			fmt.Println(output)
+
+			return nil
+		},
+	}
+
+	cmd.Flags().SortFlags = false
+
+	cmd.Flags().BoolVarP(&oneline, "oneline", "o", false, "Emit variables on a single line")
+	cmd.Flags().BoolVarP(&planOnly, "plan-only", "p", false, "Show only the plan for the profile")
+
+	return cmd
+}
+// === AGGR: END: internal/cli/list.go
+
+// === AGGR: BEGIN: internal/cli/path.go
+package cli
+
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+
+	"github.com/idelchi/envprof/internal/envprof"
+	"github.com/idelchi/godyl/pkg/path/files"
+)
+
+// Path returns the cobra command for displaying the path to the configuration file used.
+func Path(options *Options) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "path",
+		Short: "Display the path of the configuration file used",
+		Args:  cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			file, _, err := envprof.File(files.New("", options.EnvProf...))
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(file)
+
+			return nil
+		},
+	}
+
+	cmd.Flags().SortFlags = false
+
+	return cmd
+}
+// === AGGR: END: internal/cli/path.go
+
+// === AGGR: BEGIN: internal/cli/profiles.go
+package cli
+
+import (
+	"fmt"
+
+	"github.com/MakeNowJust/heredoc/v2"
+	"github.com/spf13/cobra"
+)
+
+// Profiles returns the cobra command for listing profiles.
+func Profiles(options *Options) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "profiles",
+		Short: "List all available profiles",
+		Long:  "List all available profiles sorted",
+		Example: heredoc.Doc(`
+			# List all profiles
+			$ envprof profiles
+
+			# Highlight active profile
+			$ envprof profiles -v
+		`),
+		Aliases: []string{"profs"},
+		Args:    cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			profiles, _, err := loadProfiles(options.EnvProf)
+			if err != nil {
+				return err
+			}
+
+			// It's not important if the active profile is existing or not.
+			name, _ := profiles.GetOrDefault(options.Profile)
+
+			for _, profile := range profiles.Names() {
+				//nolint:forbidigo	// Command prints out to the console.
+				fmt.Println(formatProfile(profile, options.Verbose, profile == name))
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().SortFlags = false
+
+	return cmd
+}
+
+// formatProfile optionally marks out the active profile.
+func formatProfile(profile string, decorate, isActive bool) string {
+	if !decorate {
+		return profile
+	}
+
+	if isActive {
+		return "* " + profile
+	}
+
+	return "- " + profile
+}
+// === AGGR: END: internal/cli/profiles.go
+
+// === AGGR: BEGIN: internal/cli/root.go
+package cli
+
+import (
+	"os"
+	"strings"
+
+	"github.com/MakeNowJust/heredoc/v2"
+	"github.com/spf13/cobra"
+)
+
+// Options represent the root level configuration.
+type Options struct {
+	// EnvProf is the list of candidate profile files to load.
+	EnvProf []string
+	// Profile is the selected profile.
+	Profile string
+	// Verbose enables verbose output.
+	Verbose bool
+	// Overlay contains the profiles to overlay on top of the current profile.
+	Overlay []string
+}
+
+// Execute runs the root command for the envprof CLI application.
+func Execute(version string) error {
+	options := &Options{
+		EnvProf: []string{
+			"envprof.yaml",
+			"envprof.yml",
+			"envprof.toml",
+		},
+	}
+
+	root := &cobra.Command{
+		Use:   "envprof",
+		Short: "Manage env profiles in YAML/TOML with inheritance",
+		Long: heredoc.Docf(`
+			Manage environment profiles defined in YAML or TOML, with inheritance and dotenv imports.
+
+			The config file is chosen via --file (can be a list) or ENVPROF_FILE.
+			By default, envprof searches in the current directory for:
+
+			%s
+
+			Use subcommands to list profiles, export variables, write dotenv files,
+			spawn a subshell, or exec a command with a selected profile.
+		`, " - "+strings.Join(options.EnvProf, "\n - ")),
+		Example: heredoc.Doc(`
+			# List variables for 'dev'
+			envprof --profile dev list -v
+
+			# Create a dotenv file from a profile
+			envprof --profile dev write .env
+
+			# Export to current shell
+			eval "$(envprof --profile dev export)"
+
+			# Enter a subshell with a profile
+			envprof --profile dev shell --shell zsh
+
+			# Execute a command with a profile
+			envprof --profile dev exec -- ls -la
+		`),
+		Version:          version,
+		SilenceErrors:    true,
+		TraverseChildren: true,
+		SilenceUsage:     true,
+		RunE:             UnknownSubcommandAction,
+	}
+
+	root.SetVersionTemplate("{{ .Version }}\n")
+	root.SetHelpCommand(&cobra.Command{Hidden: true})
+
+	root.Flags().SortFlags = false
+	root.PersistentFlags().SortFlags = false
+
+	root.CompletionOptions.DisableDefaultCmd = true
+	cobra.EnableCommandSorting = false
+
+	if file := os.Getenv("ENVPROF_FILE"); file != "" {
+		options.EnvProf = []string{file}
+	}
+
+	root.Flags().
+		StringSliceVarP(&options.EnvProf, "file", "f", options.EnvProf, "Config file to use, in order of preference")
+
+	root.Flags().
+		StringVarP(&options.Profile, "profile", "p", "", "Profile to activate")
+	root.PersistentFlags().
+		BoolVarP(&options.Verbose, "verbose", "v", false, "Increase verbosity level")
+	root.Flags().
+		StringSliceVarP(&options.Overlay, "overlay", "o", nil, "Profiles to overlay on top of the current profile")
+
+	root.AddCommand(
+		Path(options),
+		Profiles(options),
+		List(options),
+		Export(options),
+		Write(options),
+		Shell(options),
+		Exec(options),
+	)
+
+	if err := root.Execute(); err != nil {
+		return err
+	}
+
+	return nil
+}
+// === AGGR: END: internal/cli/root.go
+
+// === AGGR: BEGIN: internal/cli/shell.go
+package cli
+
+import (
+	"fmt"
+
+	"github.com/MakeNowJust/heredoc/v2"
+	"github.com/spf13/cobra"
+
+	"github.com/idelchi/envprof/internal/terminal"
+	"github.com/idelchi/godyl/pkg/env"
+	"github.com/idelchi/godyl/pkg/path/file"
+)
+
+// Shell returns the cobra command for entering a scoped shell with the active environment.
+func Shell(options *Options) *cobra.Command {
+	environment := env.FromEnv()
+
+	var (
+		shell   = environment.GetAny("SHELL", "STARSHIP_SHELL")
+		isolate bool
+		path    bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "shell",
+		Short: "Spawn a subshell with a profile",
+		Long: heredoc.Doc(`
+			Launch a new shell with the selected profile's environment.
+
+			Customize shell and level of isolation with --shell, --isolate, and --path.
+		`),
+		Example: heredoc.Doc(`
+			# Subshell with profile
+			envprof --profile dev shell
+
+			# Isolated subshell
+			envprof --profile dev shell --isolate
+
+			# Isolated but keep PATH
+			envprof --profile dev shell --isolate --path
+
+			# Use a specific shell
+			envprof --profile dev shell --shell zsh
+		`),
+		Aliases: []string{"sh"},
+		Args:    cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			if active := environment.Get("ENVPROF_ACTIVE_PROFILE"); environment.Exists(
+				"ENVPROF_ACTIVE_PROFILE",
+			) {
+				return fmt.Errorf(
+					"already inside profile %q, nested profiles are not allowed, please exit first",
+					active,
+				)
+			}
+
+			prof, err := loadProfile(options)
+			if err != nil {
+				return err
+			}
+
+			if err = prof.Env.AddPair("ENVPROF_ACTIVE_PROFILE", prof.Name); err != nil {
+				return err
+			}
+
+			if !isolate {
+				prof.Env.Merge(environment)
+			} else if path {
+				prof.Env.Merge(env.Env{"PATH": environment.Get("PATH")})
+			}
+
+			if shell == "" {
+				shell = terminal.Current()
+			}
+
+			//nolint:forbidigo	// Command prints out to the console.
+			fmt.Printf(
+				"Entering shell %q with profile %q...\n",
+				file.New(shell).WithoutExtension().Base(),
+				prof.Name,
+			)
+
+			if err := terminal.Spawn(shell, prof.Env.AsSlice()); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().
+		StringVarP(&shell, "shell", "s", shell, "Shell to launch (leave empty to auto-detect).")
+	cmd.Flags().BoolVarP(&isolate, "isolate", "i", false, "Isolate from parent environment.")
+	cmd.Flags().BoolVarP(&path, "path", "p", false, "Include the current PATH in the environment.")
+
+	return cmd
+}
+// === AGGR: END: internal/cli/shell.go
+
+// === AGGR: BEGIN: internal/cli/write.go
+package cli
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/MakeNowJust/heredoc/v2"
+	"github.com/spf13/cobra"
+
+	"github.com/idelchi/envprof/internal/environment"
+	"github.com/idelchi/godyl/pkg/path/file"
+)
+
+// Write defines the command for writing profile variables to one or multiple dotenv files.
+func Write(options *Options) *cobra.Command {
+	var all bool
+
+	cmd := &cobra.Command{
+		Use:   "write [file]",
+		Short: "Write profile variables to dotenv files",
+		Long: heredoc.Doc(`
+			Write variables to dotenv files.
+
+			Files are written out as <profile>.env, unless set in the profile configuration file, or
+			overridden with the [file] argument.
+		`),
+		Example: heredoc.Doc(`
+			# Write 'dev' to dev.env
+			envprof --profile dev write
+
+			# Write 'dev' to a specific file
+			envprof --profile dev write dev
+
+			# Write all profiles to <profile>.env files
+			envprof write --all
+		`),
+		Aliases: []string{"w"},
+		Args:    cobra.RangeArgs(0, 1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			nArgs := len(args)
+			if nArgs > 0 && all {
+				return errors.New(
+					"'--all' and [file] are incompatible and may not be used together",
+				)
+			}
+
+			environments := environments(all, options, args)
+
+			for _, environment := range environments {
+				if err := environment.Write(); err != nil {
+					return err
+				}
+
+				//nolint:forbidigo		// Command prints out to the console.
+				fmt.Printf("Wrote profile %q to %q\n", environment.Name, environment.Output)
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().SortFlags = false
+
+	cmd.Flags().BoolVarP(&all, "all", "a", false, "Write all profiles, ignoring the active profile")
+
+	return cmd
+}
+
+// environment returns the selected subset of environments based on the cli settings.
+func environments(all bool, options *Options, args []string) (environments []environment.Environment) {
+	switch {
+	case all:
+		profiles, _, err := loadProfiles(options.EnvProf)
+		if err != nil {
+			return nil
+		}
+
+		environments, err = profiles.Environments()
+		if err != nil {
+			return nil
+		}
+
+	default:
+		env, err := loadProfile(options)
+		if err != nil {
+			return nil
+		}
+
+		if len(args) == 1 {
+			env.Output = file.New(args[0])
+		}
+
+		environments = []environment.Environment{env}
+	}
+
+	return environments
+}
+// === AGGR: END: internal/cli/write.go
+
+// === AGGR: BEGIN: internal/debug/debug.go
+// Package debug provides a basic debug printing utility.
+package debug
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/idelchi/godyl/pkg/pretty"
+)
+
+// DebugEnvVar is the environment variable that controls debug output.
+const DebugEnvVar = "ENVPROF_DEBUG"
+
+// Debug prints a debug message if the DebugEnvVar environment variable is set.
+func Debug(format string, args ...any) {
+	if os.Getenv(DebugEnvVar) != "" {
+		fmt.Printf( //nolint:forbidigo // Debug package is meant for printing
+			"DEBUG: "+format+"\n",
+			args...)
+	}
+}
+
+// Print prints a debug message if the DebugEnvVar environment variable is set.
+func Print(a ...any) {
+	if os.Getenv(DebugEnvVar) != "" {
+		pretty.PrintYAML(a)
+	}
+}
+// === AGGR: END: internal/debug/debug.go
+
+// === AGGR: BEGIN: internal/debug/doc.go
+// Package debug provides debugging utilities and helpers for development.
+//
+//	It includes functions for diagnostic output and troubleshooting support.
+package debug
+// === AGGR: END: internal/debug/doc.go
+
+// === AGGR: BEGIN: internal/environment/diff.go
+package environment
+
+import (
+	"fmt"
+	"io"
+	"slices"
+	"strings"
+
+	"github.com/idelchi/godyl/pkg/env"
+)
+
+type Change struct {
+	Key string
+	Old string
+	New string
+}
+
+type Diff struct {
+	Added   env.Env  // present in B, not in A
+	Removed env.Env  // present in A, not in B
+	Changed []Change // present in both, different values
+}
+
+// DiffEnvs computes a structured diff of two environments.
+func DiffEnvs(a, b env.Env) Diff {
+	// Normalize for platform semantics (e.g., Windows case-insensitivity).
+	a = a.Normalized()
+	b = b.Normalized()
+
+	out := Diff{
+		Added:   make(env.Env),
+		Removed: make(env.Env),
+	}
+
+	// Removed / Changed
+	for _, k := range a.Keys() {
+		av := a.Get(k)
+		if !b.Exists(k) {
+			out.Removed[k] = av
+			continue
+		}
+		if bv := b.Get(k); av != bv {
+			out.Changed = append(out.Changed, Change{Key: k, Old: av, New: bv})
+		}
+	}
+
+	// Added
+	for _, k := range b.Keys() {
+		if !a.Exists(k) {
+			out.Added[k] = b.Get(k)
+		}
+	}
+
+	// Deterministic order for Changed.
+	slices.SortFunc(out.Changed, func(x, y Change) int { return strings.Compare(x.Key, y.Key) })
+	return out
+}
+
+// Equal reports whether there are no differences.
+func (d Diff) Equal() bool {
+	return len(d.Added) == 0 && len(d.Removed) == 0 && len(d.Changed) == 0
+}
+
+type RenderOptions struct {
+	Color bool // ANSI colors
+}
+
+// RenderUnified prints a git-like unified diff.
+// Lines: + added, - removed, ~ changed ("old -> new").
+// aName/bName are labels (e.g., "env1", "env2").
+func (d Diff) RenderUnified(w io.Writer, aName, bName string, opts RenderOptions) error {
+	color := func(code, s string) string {
+		if !opts.Color {
+			return s
+		}
+		return code + s + "\x1b[0m"
+	}
+	green := func(s string) string { return color("\x1b[32m", s) }
+	red := func(s string) string { return color("\x1b[31m", s) }
+	yellow := func(s string) string { return color("\x1b[33m", s) }
+
+	fmt.Fprintf(w, "--- %s\n+++ %s\n", aName, bName)
+
+	addKeys := d.Added.Keys()
+	rmKeys := d.Removed.Keys()
+
+	for _, k := range rmKeys {
+		fmt.Fprintf(w, "%s %s=%q\n", red("-"), k, d.Removed[k])
+	}
+	for _, k := range addKeys {
+		fmt.Fprintf(w, "%s %s=%q\n", green("+"), k, d.Added[k])
+	}
+	for _, ch := range d.Changed {
+		fmt.Fprintf(w, "%s %s: %q -> %q\n", yellow("~"), ch.Key, ch.Old, ch.New)
+	}
+	return nil
+}
+// === AGGR: END: internal/environment/diff.go
+
+// === AGGR: BEGIN: internal/environment/doc.go
+// Package environment manages environment variable collections and their origin tracking.
+// It provides functionality for overlaying multiple environment sources and exporting them.
+package environment
+// === AGGR: END: internal/environment/doc.go
+
+// === AGGR: BEGIN: internal/environment/environment.go
+package environment
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/idelchi/godyl/pkg/env"
+	"github.com/idelchi/godyl/pkg/path/file"
+)
+
+// Environment represents the resolved environment variables for a named profile.
+type Environment struct {
+	// Name is the name of the profile.
+	Name string
+	// Output is the output file for the profile.
+	Output file.File
+
+	// Env is the environment variables for the profile.
+	Env env.Env
+	// Origin tracks the source of each environment variable.
+	Origin Origin
+}
+
+// New returns a new environment for the given profile,
+// with default values for the output file.
+func New(name, output string) Environment {
+	if output == "" {
+		output = name + ".env"
+	}
+
+	return Environment{
+		Name:   name,
+		Output: file.New(output),
+		Env:    make(env.Env),
+		Origin: make(Origin),
+	}
+}
+
+// OverlayDotEnv overlays the environment variables from a .env file.
+func (e *Environment) OverlayDotEnv(path, profile string) error {
+	file := file.New(path)
+
+	if !file.Exists() {
+		return fmt.Errorf("dotenv file %q does not exist", path)
+	}
+
+	if file.IsDir() {
+		return fmt.Errorf("dotenv file %q is a directory", path)
+	}
+
+	env, err := env.FromDotEnv(file.Path())
+	if err != nil {
+		return err
+	}
+
+	if e.Name == profile {
+		e.Origin.Clear(env.Keys()...)
+	} else {
+		e.Origin.Clear(env.Keys()...)
+		e.Origin.Add(profile, env.Keys()...)
+	}
+
+	e.Origin.Add(path, env.Keys()...)
+
+	e.Env = env.MergedWith(e.Env)
+
+	return nil
+}
+
+// OverlayOther overlays the environment variables from another environment.
+func (e *Environment) OverlayOther(other Environment) {
+	env := other.Env
+	profile := other.Name
+
+	if e.Name == profile {
+		e.Origin.Clear(env.Keys()...)
+	} else {
+		e.Origin.Clear(env.Keys()...)
+		e.Origin.Add(profile, env.Keys()...)
+	}
+
+	e.Env = other.Env.MergedWith(e.Env)
+}
+
+// Write saves the environment variables to a dotenv file.
+func (e *Environment) Write() error {
+	if e.Output == "" {
+		return errors.New("no output file specified")
+	}
+
+	envs := e.Env.AsSlice()
+
+	envs = append([]string{fmt.Sprintf("# Active profile: %q", e.Name)}, envs...)
+	envs = append(envs, "")
+
+	if err := e.Output.Write([]byte(strings.Join(envs, "\n"))); err != nil {
+		return fmt.Errorf("writing to dotenv file %q: %w", e.Output, err)
+	}
+
+	return nil
+}
+// === AGGR: END: internal/environment/environment.go
+
+// === AGGR: BEGIN: internal/environment/format.go
+package environment
+
+import (
+	"fmt"
+	"strings"
+)
+
+// Formatter holds the configuration for formatting environment variables.
+type Formatter struct {
+	// WithOrigin indicates whether to include the origin of the variable.
+	WithOrigin bool
+	// WithKey indicates whether to include the key in the output.
+	WithKey bool
+	// Prefix is a string to prepend to the variable value.
+	Prefix string
+	// Padding is the width of the output field.
+	Padding int
+}
+
+// Key formats a environment variable for output.
+func (f Formatter) Key(key string, environment Environment) string {
+	if f.Padding == 0 {
+		f.Padding = 60
+	}
+
+	val := environment.Env.Get(key)
+
+	if f.WithKey {
+		val = fmt.Sprintf("%v=%v", key, val)
+	}
+
+	if f.WithOrigin {
+		if src := environment.Origin[key]; len(src) > 0 {
+			return fmt.Sprintf("%-*v (inherited from %s)", f.Padding, val, src)
+		}
+	}
+
+	if f.Prefix != "" {
+		val = f.Prefix + val
+	}
+
+	return val
+}
+
+// All formats all environment variables for output.
+func (f Formatter) All(environment Environment) string {
+	out := []string{}
+
+	for _, k := range environment.Env.Keys() {
+		out = append(out, f.Key(k, environment))
+	}
+
+	return strings.Join(out, "\n")
+}
+// === AGGR: END: internal/environment/format.go
+
+// === AGGR: BEGIN: internal/environment/origin.go
+package environment
+
+import (
+	"fmt"
+	"strings"
+)
+
+// Origin tracks a key to it's source.
+type Origin map[string]Heritage
+
+// Add adds a new origin for the given keys.
+func (o *Origin) Add(origin string, keys ...string) {
+	for _, k := range keys {
+		(*o)[k] = append((*o)[k], origin)
+	}
+}
+
+// Clear removes all origins for the given keys.
+func (o *Origin) Clear(keys ...string) {
+	for _, k := range keys {
+		delete(*o, k)
+	}
+}
+
+// Heritage represents the origin parts of a key.
+type Heritage []string
+
+// String returns the string representation of the origin parts.
+func (h Heritage) String() string {
+	result := make([]string, 0, len(h))
+
+	for _, part := range h {
+		result = append(result, fmt.Sprintf("%q", part))
+	}
+
+	return strings.Join(result, " -> ")
+}
+// === AGGR: END: internal/environment/origin.go
+
+// === AGGR: BEGIN: internal/envprof/doc.go
+// Package envprof loads and unmarshals environment profile configurations from various file formats.
+// It supports YAML, TOML and JSON formats for defining environment profiles.
+package envprof
+// === AGGR: END: internal/envprof/doc.go
+
+// === AGGR: BEGIN: internal/envprof/store.go
+package envprof
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/idelchi/envprof/internal/profiles"
+	"github.com/idelchi/godyl/pkg/env"
+	"github.com/idelchi/godyl/pkg/path/file"
+	"github.com/idelchi/godyl/pkg/path/files"
+	"github.com/idelchi/godyl/pkg/pretty"
+)
+
+// Type represents the type of the profile file.
+type Type string
+
+const (
+	// YAML is the YAML file type.
+	YAML Type = "yaml"
+	// TOML is the TOML file type.
+	TOML Type = "toml"
+)
+
+// File returns the path and type of the profile file selected.
+func File(paths files.Files) (file.File, Type, error) {
+	file, ok := paths.Exists()
+	if !ok {
+		return file, "", fmt.Errorf("profile file not found: searched for %v", paths)
+	}
+
+	var format Type
+
+	switch ext := file.Extension(); ext {
+	case "yaml", "yml":
+		format = YAML
+	case "toml":
+		format = TOML
+	default:
+		return file, "", fmt.Errorf("unsupported file type: %q: %q", file.Path(), ext)
+	}
+
+	return file, format, nil
+}
+
+// Load reads the file and unmarshals it into the store.
+func Load(paths files.Files) (profiles.Profiles, file.File, error) {
+	file, format, err := File(paths)
+	if err != nil {
+		return nil, file, err
+	}
+
+	data, err := file.Read()
+	if err != nil {
+		return nil, file, err
+	}
+
+	data, err = Template(data, env.FromEnv())
+	if err != nil {
+		return nil, file, fmt.Errorf("templating profile file %q: %w", file.Path(), err)
+	}
+
+	profiles, err := Unmarshal(data, format)
+	if err != nil {
+		return nil, file, err
+	}
+
+	if err = profiles.Validate(); err != nil {
+		return nil, file, err
+	}
+
+	for name, profile := range profiles {
+		if err := profile.Extends.Resolve(); err != nil {
+			return nil, file, fmt.Errorf("profile %q: %w", name, err)
+		}
+
+		profiles[name] = profile
+	}
+
+	pretty.PrintYAML(profiles["dev"])
+
+	os.Exit(0)
+
+	return profiles, file, nil
+}
+// === AGGR: END: internal/envprof/store.go
+
+// === AGGR: BEGIN: internal/envprof/template.go
+package envprof
+
+import (
+	"bytes"
+	"text/template"
+
+	"github.com/idelchi/godyl/pkg/env"
+)
+
+// Default functions for templating.
+var fn = template.FuncMap{
+	"default": func(val, def string) string {
+		if val == "" {
+			return def
+		}
+		return val
+	},
+}
+
+// Template renders a Go text/template using the provided env map.
+// Template usage: {{ .FOO }} or {{ .FOO | default "fallback" }}.
+func Template(data []byte, env env.Env) ([]byte, error) {
+	tmpl, err := template.New("env").
+		Option("missingkey=zero").
+		Funcs(fn).
+		Parse(string(data))
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, env); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+// === AGGR: END: internal/envprof/template.go
+
+// === AGGR: BEGIN: internal/envprof/unmarshal.go
+package envprof
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/BurntSushi/toml"
+	"github.com/goccy/go-yaml"
+
+	"github.com/idelchi/envprof/internal/profiles"
+)
+
+// Unmarshal decodes the data into profiles.
+func Unmarshal(data []byte, format Type) (profiles profiles.Profiles, err error) {
+	switch format {
+	case YAML:
+		if err := yaml.UnmarshalWithOptions(data, &profiles, yaml.Strict()); err != nil {
+			return profiles, err
+		}
+
+	case TOML:
+		md, err := toml.Decode(string(data), &profiles)
+		if err != nil {
+			return profiles, err
+		}
+
+		if undecoded := md.Undecoded(); len(undecoded) > 0 {
+			errs := make([]error, len(undecoded))
+			for i, key := range undecoded {
+				errs[i] = fmt.Errorf("unknown field: %s", key.String())
+			}
+
+			return nil, errors.Join(errs...)
+		}
+
+	default:
+		return nil, fmt.Errorf("unsupported file format: %q", format)
+	}
+
+	return profiles, nil
+}
+// === AGGR: END: internal/envprof/unmarshal.go
+
+// === AGGR: BEGIN: internal/exec/doc.go
+// Package execx provides a cross-platform process replacement primitive.
+package execx
+// === AGGR: END: internal/exec/doc.go
+
+// === AGGR: BEGIN: internal/exec/exec.go
+package execx
+
+import (
+	"os/exec"
+)
+
+// Replace replaces the current process with command+args using env and dir.
+// On success it never returns.
+func Replace(command string, args, env []string) error {
+	path, err := exec.LookPath(command)
+	if err != nil {
+		return err
+	}
+
+	return replace(path, args, env)
+}
+// === AGGR: END: internal/exec/exec.go
+
+// === AGGR: BEGIN: internal/exec/exec_unix.go
+//go:build !windows
+
+package execx
+
+import (
+	"golang.org/x/sys/unix"
+)
+
+// replace replaces the current process with command+args using env and dir.
+// On success it never returns.
+func replace(path string, args, env []string) error {
+	argv := append([]string{path}, args...) // argv[0] required
+
+	return unix.Exec(path, argv, env)
+}
+// === AGGR: END: internal/exec/exec_unix.go
+
+// === AGGR: BEGIN: internal/exec/exec_windows.go
+//go:build windows
+
+package execx
+
+import (
+	"context"
+	"errors"
+	"os"
+	"os/exec"
+	"strings"
+
+	"github.com/idelchi/godyl/pkg/path/file"
+)
+
+// replace "simulates" replace: runs child with envExact+dir, then exits with child's code.
+func replace(path string, args, env []string) error {
+	var command *exec.Cmd
+
+	ext := strings.ToLower(file.New(path).Extension())
+	if ext == "bat" || ext == "cmd" {
+		//nolint:gosec	// The user can execute whatever they'd like.
+		command = exec.CommandContext(
+			context.Background(),
+			"cmd.exe",
+			append([]string{"/c", path}, args...)...)
+	} else {
+		command = exec.CommandContext(context.Background(), path, args...)
+	}
+
+	command.Env = env
+
+	command.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr
+
+	if err := command.Run(); err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			os.Exit(ee.ExitCode()) //nolint:forbidigo // Allowing exit code propagation.
+		}
+
+		return err
+	}
+
+	if ps := command.ProcessState; ps != nil {
+		os.Exit(ps.ExitCode()) //nolint:forbidigo	// Allowing exit code propagation.
+	}
+
+	os.Exit(0) //nolint:forbidigo	// Allowing exit code propagation.
+
+	return nil
+}
+// === AGGR: END: internal/exec/exec_windows.go
+
+// === AGGR: BEGIN: internal/extends/doc.go
+// Package extends handles profile inheritance and dotenv file references.
+// It parses and validates extend directives that link profiles and environment files.
+package extends
+// === AGGR: END: internal/extends/doc.go
+
+// === AGGR: BEGIN: internal/extends/extends.go
+package extends
+
+import (
+	"errors"
+	"fmt"
+	"path/filepath"
+	"strings"
+)
+
+// Extend represents a extend entry.
+type Extend string
+
+const (
+	// Profile is an extend entry for a profile.
+	Profile Extend = "profile"
+	// DotEnv is an extend entry for a dotenv file.
+	DotEnv Extend = "dotenv"
+	// Invalid is an extend entry for an invalid type.
+	Invalid Extend = "invalid"
+)
+
+// Type returns the type of the extend entry.
+func (e Extend) Type() Extend {
+	switch {
+	case strings.HasPrefix(string(e), "profile:"):
+		return Profile
+	case strings.HasPrefix(string(e), "dotenv:"):
+		return DotEnv
+	case strings.Contains(string(e), ":"):
+		return Invalid
+	default:
+		return Profile
+	}
+}
+
+// Path strips the type prefix from the extend entry.
+func (e Extend) Path() string {
+	return strings.TrimPrefix(strings.TrimPrefix(string(e), string(e.Type())), ":")
+}
+
+// ToType converts the extend entry to its type.
+func ToType(e []string, t Extend) []Extend {
+	var extends []Extend
+
+	for _, s := range e {
+		extends = append(extends, Extend(fmt.Sprintf("%s:%s", t, s)))
+	}
+
+	return extends
+}
+
+// Extends represents a list of extend entries.
+type Extends []Extend
+
+// Valid checks if all extend entries are valid.
+func (es Extends) Valid() error {
+	for _, e := range es {
+		if e.Type() == Invalid {
+			return errors.New("invalid extend: " + string(e))
+		}
+	}
+
+	return nil
+}
+
+func (es *Extends) Resolve() error {
+	var extends Extends
+
+	for _, extend := range *es {
+		if extend.Type() == DotEnv {
+			path := extend.Path()
+
+			matches, err := filepath.Glob(path)
+			if err != nil {
+				return fmt.Errorf("dotenv %q: %w", path, err)
+			}
+
+			extends = append(extends, ToType(matches, extend.Type())...)
+		} else {
+			extends = append(extends, extend)
+		}
+	}
+
+	*es = extends
+
+	return nil
+}
+// === AGGR: END: internal/extends/extends.go
+
+// === AGGR: BEGIN: internal/profile/doc.go
+// Package profile defines the core profile structure and environment variable handling.
+// It provides functionality for converting profiles to environment configurations.
+package profile
+// === AGGR: END: internal/profile/doc.go
+
+// === AGGR: BEGIN: internal/profile/env.go
+package profile
+
+import (
+	"fmt"
+	"slices"
+
+	"github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml/ast"
+
+	"github.com/idelchi/godyl/pkg/env"
+)
+
+// Env is a map of environment variable names to their non-stringified values.
+type Env map[string]any
+
+// UnmarshalYAML allows Env to be unmarshaled as its regular type or a sequence of strings.
+func (e *Env) UnmarshalYAML(node ast.Node) error {
+	if seq, ok := node.(*ast.SequenceNode); ok {
+		var envs []string
+
+		if err := yaml.NodeToValue(seq, &envs); err != nil {
+			return fmt.Errorf("decoding env sequence: %w", err)
+		}
+
+		env, err := env.AsEnv(envs...)
+		if err != nil {
+			return fmt.Errorf("converting to env.Env: %w", err)
+		}
+
+		e.FromEnv(env)
+
+		return nil
+	}
+
+	type raw Env
+
+	if err := yaml.NodeToValue(node, (*raw)(e)); err != nil {
+		return fmt.Errorf("decoding env map: %w", err)
+	}
+
+	return nil
+}
+
+// FromEnv initializes Env from an env.Env.
+func (e *Env) FromEnv(env env.Env) {
+	*e = make(Env)
+
+	for k, v := range env {
+		(*e)[k] = v
+	}
+}
+
+// Stringified serializes Env into env.Env using Stringify.
+// – Scalars pass through unchanged.
+// – Non-scalars are JSON-minified and single-quoted (see Stringify).
+func (e *Env) Stringified() (env.Env, error) {
+	env := make(env.Env, len(*e))
+
+	keys := make([]string, 0, len(*e))
+	for k := range *e {
+		keys = append(keys, k)
+	}
+
+	slices.Sort(keys)
+
+	for _, key := range keys {
+		str, err := Stringify((*e)[key])
+		if err != nil {
+			return nil, fmt.Errorf("env %q: %w", key, err)
+		}
+
+		if err := env.AddPair(key, str); err != nil {
+			return nil, fmt.Errorf("env %q: %w", key, err)
+		}
+	}
+
+	return env, nil
+}
+// === AGGR: END: internal/profile/env.go
+
+// === AGGR: BEGIN: internal/profile/profile.go
+package profile
+
+import (
+	"github.com/idelchi/envprof/internal/environment"
+	"github.com/idelchi/envprof/internal/extends"
+)
+
+// Profile holds metadata plus an env-var map.
+type Profile struct {
+	// Env is a collection of environment variables.
+	Env Env
+	// Extends is a list of references to other places to extend from.
+	Extends extends.Extends
+	// Output is the desired output file.
+	Output string
+	// Default indicates whether this profile is the default one.
+	Default bool
+}
+
+// ToEnv converts the profile to an environment representation,
+// stringifying the environment variables.
+func (p *Profile) ToEnv(name string) (environment.Environment, error) {
+	stringified, err := p.Env.Stringified()
+	if err != nil {
+		return environment.Environment{}, err
+	}
+
+	return environment.Environment{
+		Name: name,
+		Env:  stringified,
+	}, nil
+}
+// === AGGR: END: internal/profile/profile.go
+
+// === AGGR: BEGIN: internal/profile/stringify.go
+package profile
+
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
+	"unicode"
+)
+
+// Stringify turns any Go value into the dotenv-ready string described earlier.
+//   - Scalars → plain strings (`true`, `5432`, `foo`…).
+//   - Slices / maps / structs → compact JSON wrapped in single quotes
+//     (`'["a","b"]'`, `'{"k":"v"}'`).
+func Stringify(v any) (string, error) {
+	switch val := v.(type) {
+	case nil:
+		return "", nil
+
+	case string:
+		if needsQuotes(val) {
+			return strconv.Quote(val), nil // adds double-quotes and escapes
+		}
+
+		return val, nil
+
+	case bool:
+		return strconv.FormatBool(val), nil
+
+	// All signed ints
+	case int, int8, int16, int32, int64:
+		return fmt.Sprintf("%d", val), nil
+
+	// Unsigned ints
+	case uint, uint8, uint16, uint32, uint64:
+		return fmt.Sprintf("%d", val), nil
+
+	case float32:
+		return strconv.FormatFloat(float64(val), 'f', -1, 32), nil
+	case float64:
+		return strconv.FormatFloat(val, 'f', -1, 64), nil
+
+	default:
+		// Anything not matched above gets JSON-encoded.
+		raw, err := json.Marshal(val)
+		if err != nil {
+			return "", fmt.Errorf("json: %w", err)
+		}
+
+		return "'" + string(raw) + "'", nil
+	}
+}
+
+// needsQuotes returns true if the string contains characters that
+// are troublesome in a dotenv line (space, =, #, quotes, etc.).
+func needsQuotes(s string) bool {
+	if s == "" {
+		return false
+	}
+
+	for _, r := range s {
+		switch {
+		case unicode.IsSpace(r):
+			return true
+		case strings.ContainsRune(`"'#=`, r):
+			return true
+		}
+	}
+
+	return false
+}
+// === AGGR: END: internal/profile/stringify.go
+
+// === AGGR: BEGIN: internal/profiles/doc.go
+// Package profiles manages collections of environment profiles and their relationships.
+// It handles profile resolution, validation, and environment generation with inheritance support.
+package profiles
+// === AGGR: END: internal/profiles/doc.go
+
+// === AGGR: BEGIN: internal/profiles/plan.go
+package profiles
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/idelchi/envprof/internal/extends"
+)
+
+// replay steps
+type StepKind uint8
+
+const (
+	StepDotenv StepKind = iota
+	StepProfile
+)
+
+type Step struct {
+	Kind  StepKind
+	Owner string // for dotenv origin
+	Name  string // profile name or dotenv path
+}
+
+type Steps []Step
+
+func (s Steps) Chain() string {
+	var out []string
+	for _, step := range s {
+		out = append(out, step.Name)
+	}
+
+	return strings.Join(out, " -> ")
+}
+
+func (p Profiles) Plan(root string) (Steps, error) {
+	if _, err := p.Get(root); err != nil {
+		return nil, err
+	}
+
+	type state uint8
+	const (
+		visiting state = 1
+		visited  state = 2
+	)
+
+	seen := map[string]state{}
+	cache := map[string]Steps{}
+
+	var visit func(string) (Steps, error)
+	visit = func(n string) (Steps, error) {
+		switch seen[n] {
+		case visited:
+			out := make(Steps, len(cache[n]))
+			copy(out, cache[n])
+			return out, nil
+		case visiting:
+			// unreachable if we detect cycles on edges below, but keep as fallback
+			return nil, fmt.Errorf("cycle detected: %s", n)
+		}
+
+		seen[n] = visiting
+		defer func() { seen[n] = visited }()
+
+		pr, err := p.Get(n)
+		if err != nil {
+			return nil, err
+		}
+
+		var plan Steps
+		for _, e := range pr.Extends {
+			switch e.Type() {
+			case extends.Profile:
+				child := e.Path()
+
+				// Show only the two nodes involved in the back-edge.
+				if seen[child] == visiting {
+					return nil, fmt.Errorf("cycle detected: %s -> %s -> %s", n, child, n)
+				}
+
+				sub, err := visit(child)
+				if err != nil {
+					return nil, err
+				}
+				plan = append(plan, sub...) // parent (and its stuff) first
+
+			case extends.DotEnv:
+				plan = append(plan, Step{StepDotenv, n, e.Path()}) // interleave
+
+			default:
+				return nil, fmt.Errorf("profile %q: unsupported extends %q", n, e.Type())
+			}
+		}
+
+		plan = append(plan, Step{StepProfile, "", n}) // inline env last
+
+		cache[n] = plan
+		out := make(Steps, len(plan))
+		copy(out, plan)
+		return out, nil
+	}
+
+	return visit(root)
+}
+// === AGGR: END: internal/profiles/plan.go
+
+// === AGGR: BEGIN: internal/profiles/profiles.go
+package profiles
+
+import (
+	"errors"
+	"fmt"
+	"maps"
+	"slices"
+
+	"github.com/idelchi/envprof/internal/environment"
+	"github.com/idelchi/envprof/internal/profile"
+)
+
+// Profiles is a map of profile names to their metadata.
+type Profiles map[string]profile.Profile
+
+// GetOrDefault returns the profile name if it exists, or the default profile if none is specified.
+func (p Profiles) GetOrDefault(name string) (string, error) {
+	if name == "" {
+		name = p.Default()
+	}
+
+	if name == "" {
+		return "", errors.New("no default profile found and none specified")
+	}
+
+	return name, nil
+}
+
+// Exists checks if a profile exists in the profiles.
+func (p Profiles) Exists(name string) bool {
+	_, ok := p[name]
+
+	return ok
+}
+
+// Names returns the names of the profiles in sorted order.
+func (p Profiles) Names() []string {
+	names := slices.Collect(maps.Keys(p))
+
+	slices.Sort(names)
+
+	return names
+}
+
+// Defaults returns the names of the default profiles.
+func (p Profiles) Defaults() (defaults []string) {
+	for name, profile := range p {
+		if profile.Default {
+			defaults = append(defaults, name)
+		}
+	}
+
+	return defaults
+}
+
+// Default returns the name of the first default profile found.
+func (p Profiles) Default() string {
+	defaults := p.Defaults()
+	if len(defaults) == 0 {
+		return ""
+	}
+
+	return defaults[0]
+}
+
+// Validate checks that the profiles are valid.
+func (p Profiles) Validate() error {
+	var errs []error
+
+	defaults := p.Defaults()
+
+	if len(defaults) > 1 {
+		errs = append(errs, fmt.Errorf("more than one default profile: %v", defaults))
+	}
+
+	return errors.Join(errs...)
+}
+
+// Environments returns a fully resolved list of environments for all profiles.
+func (p Profiles) Environments() (environments []environment.Environment, err error) {
+	for name := range p {
+		env, err := p.Environment(name)
+		if err != nil {
+			return nil, err
+		}
+
+		environments = append(environments, env)
+	}
+
+	return environments, nil
+}
+
+// Environment returns a fully resolved environment for a specific profile.
+func (p Profiles) Environment(name string, overlays ...string) (environment.Environment, error) {
+	cur, err := p.Get(name)
+	out := environment.New(name, cur.Output)
+
+	if err != nil {
+		return out, err
+	}
+
+	plan, err := p.Plan(name)
+	if err != nil {
+		return out, err
+	}
+
+	for _, s := range plan {
+		switch s.Kind {
+		case StepDotenv:
+			if err := out.OverlayDotEnv(s.Name, s.Owner); err != nil {
+				return out, fmt.Errorf("profile %q: dotenv %q: %w", s.Owner, s.Name, err)
+			}
+		case StepProfile:
+			pr, err := p.Get(s.Name)
+			if err != nil {
+				return out, err
+			}
+
+			pe, err := pr.ToEnv(s.Name)
+			if err != nil {
+				return out, fmt.Errorf("stringify %q: %w", s.Name, err)
+			}
+
+			out.OverlayOther(pe)
+		}
+	}
+
+	for _, ov := range overlays {
+		e, err := p.Environment(ov)
+		if err != nil {
+			return out, fmt.Errorf("applying overlay %q: %w", ov, err)
+		}
+
+		out.OverlayOther(e)
+	}
+
+	return out, nil
+}
+
+// get attempts to retrieve a profile by name.
+// Errors for empty or non-existing profile names.
+func (p Profiles) Get(name string) (profile.Profile, error) {
+	if name == "" {
+		return profile.Profile{}, errors.New("empty profile name")
+	}
+
+	if !p.Exists(name) {
+		return profile.Profile{}, fmt.Errorf("profile %q not found", name)
+	}
+
+	return p[name], nil
+}
+// === AGGR: END: internal/profiles/profiles.go
+
+// === AGGR: BEGIN: internal/terminal/terminal.go
+// Package terminal provides functionality to spawn a terminal with a specific environment.
+package terminal
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"runtime"
+
+	"github.com/idelchi/godyl/pkg/env"
+)
+
+// Spawn launches a new shell with the specified environment variables.
+func Spawn(shell string, env []string) error {
+	cmd := exec.CommandContext(context.Background(), shell)
+
+	cmd.Env = env
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("spawning terminal %q: %w", shell, err)
+	}
+
+	return nil
+}
+
+// Current tries to determine the current terminal being used.
+func Current() string {
+	env := env.FromEnv()
+
+	if shell := env.GetAny("SHELL", "STARSHIP_SHELL"); shell != "" {
+		return shell
+	}
+
+	switch runtime.GOOS {
+	case "windows":
+		switch {
+		case env.Exists("PROMPT"):
+			return "cmd.exe"
+		case env.Exists("PSMODULEPATH"):
+			return "powershell.exe"
+		default:
+			return "cmd.exe"
+		}
+
+	default:
+		return "sh"
+	}
+}
+// === AGGR: END: internal/terminal/terminal.go
+
+// === AGGR: BEGIN: main.go
+// Command envprof is a command-line tool for managing environment variables in profiles.
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/idelchi/envprof/internal/cli"
+)
+
+// Global variable for CI stamping.
+var version = "unknown - unofficial & generated by unknown"
+
+// main is the entry point for the CLI application.
+func main() {
+	if err := cli.Execute(version); err != nil {
+		fmt.Println(err)
+
+		os.Exit(1)
+	}
+
+	os.Exit(0)
+}
+// === AGGR: END: main.go
+
+
+tree
+.
+├── envprof.yaml
+├── internal
+│   ├── cli
+│   │   ├── common.go
+│   │   ├── doc.go
+│   │   ├── exec.go
+│   │   ├── export.go
+│   │   ├── list.go
+│   │   ├── path.go
+│   │   ├── profiles.go
+│   │   ├── root.go
+│   │   ├── shell.go
+│   │   └── write.go
+│   ├── debug
+│   │   ├── debug.go
+│   │   └── doc.go
+│   ├── environment
+│   │   ├── diff.go
+│   │   ├── doc.go
+│   │   ├── environment.go
+│   │   ├── format.go
+│   │   └── origin.go
+│   ├── envprof
+│   │   ├── doc.go
+│   │   ├── store.go
+│   │   ├── template.go
+│   │   └── unmarshal.go
+│   ├── exec
+│   │   ├── doc.go
+│   │   ├── exec.go
+│   │   ├── exec_unix.go
+│   │   └── exec_windows.go
+│   ├── extends
+│   │   ├── doc.go
+│   │   └── extends.go
+│   ├── profile
+│   │   ├── doc.go
+│   │   ├── env.go
+│   │   ├── profile.go
+│   │   └── stringify.go
+│   ├── profiles
+│   │   ├── doc.go
+│   │   ├── plan.go
+│   │   └── profiles.go
+│   └── terminal
+│       └── terminal.go
+└── main.go
+
+37 files

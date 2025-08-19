@@ -6,60 +6,51 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/idelchi/envprof/internal/profile"
+	"github.com/idelchi/envprof/internal/environment"
+	"github.com/idelchi/envprof/internal/envprof"
+	"github.com/idelchi/envprof/internal/profiles"
+	"github.com/idelchi/godyl/pkg/path/file"
 	"github.com/idelchi/godyl/pkg/path/files"
 )
 
 // loadProfiles loads the profile store from the specified file and fallbacks.
-func loadProfiles(paths []string) (profile.Profiles, error) {
-	file, ok := files.New("", paths...).Exists()
-	if !ok {
-		return nil, fmt.Errorf("profile file not found: searched for %v", paths)
-	}
-
-	profiles, err := profile.New(file)
+func loadProfiles(paths []string) (profiles.Profiles, file.File, error) {
+	profiles, file, err := envprof.Load(files.New("", paths...))
 	if err != nil {
-		return nil, err
+		return nil, file, err
 	}
 
-	store, err := profiles.Load()
-	if err != nil {
-		return nil, fmt.Errorf("loading profile from %s: %w", file.String(), err)
-	}
-
-	return store.Profiles, nil
+	return profiles, file, nil
 }
 
-// loadProfile loads the profile variables from the specified file and fallbacks.
-func loadProfile(paths []string, name string) (*profile.InheritanceTracker, error) {
-	profiles, err := loadProfiles(paths)
+// loadProfile fully loads and resolves the profile variables from the specified file and fallbacks.
+func loadProfile(options *Options) (environment.Environment, error) {
+	profiles, _, err := loadProfiles(options.EnvProf)
 	if err != nil {
-		return nil, err
+		return environment.Environment{}, err
 	}
 
-	name, err = profileOrDefault(profiles, name)
+	profile, err := profiles.GetOrDefault(options.Profile)
 	if err != nil {
-		return nil, err
+		return environment.Environment{}, err
 	}
 
-	vars, err := profiles.Environment(name)
-	if err != nil {
-		return nil, err
-	}
-
-	return vars, nil
+	return profiles.Environment(profile, options.Overlay...)
 }
 
-// profileOrDefault returns the profile or the default profile if not found.
-func profileOrDefault(profiles profile.Profiles, name string) (string, error) {
-	if name == "" {
-		name = profiles.Default()
-		if name == "" {
-			return "", errors.New("no default profile found and none specified with --profile")
-		}
+// loadPlan returns the plan for the specified profile.
+func loadPlan(options *Options) (profiles.Steps, error) {
+	profiles, _, err := loadProfiles(options.EnvProf)
+	if err != nil {
+		return nil, err
 	}
 
-	return name, nil
+	profile, err := profiles.GetOrDefault(options.Profile)
+	if err != nil {
+		return nil, err
+	}
+
+	return profiles.Plan(profile)
 }
 
 // UnknownSubcommandAction handles unknown cobra subcommands.
