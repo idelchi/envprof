@@ -3,6 +3,7 @@ package profiles
 import (
 	"fmt"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/idelchi/envprof/internal/extends"
 )
@@ -24,16 +25,21 @@ type Step struct {
 type Steps []Step
 
 func (s Steps) Chain() string {
-	var out []string
-	for _, step := range s {
-		str := fmt.Sprintf("%s (%s)", step.Name, step.Kind)
-		if step.Owner != "" {
-			str += fmt.Sprintf(" (%s)", step.Owner)
-		}
-		out = append(out, str)
-	}
+	var b strings.Builder
+	w := tabwriter.NewWriter(&b, 0, 4, 2, ' ', 0)
 
-	return strings.Join(out, "\n")
+	fmt.Fprintln(w, "STEP\tPROFILE\tKIND\tNAME")
+	for i, st := range s {
+		kind := map[StepKind]string{StepDotenv: "dotenv", StepProfile: "env"}[st.Kind]
+		owner := st.Owner
+		if owner == "" {
+			owner = st.Name // for env steps, owner == profile
+			st.Name = ""    // no name for env steps
+		}
+		fmt.Fprintf(w, "%02d\t%s\t%s\t%s\n", i+1, owner, kind, st.Name)
+	}
+	_ = w.Flush()
+	return b.String()
 }
 
 func (p Profiles) Plan(root string) (Steps, error) {

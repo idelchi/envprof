@@ -1,31 +1,3 @@
-// === AGGR: BEGIN: envprof.yaml
-dev:
-  default: true
-  output: development.env
-  extends:
-    - dotenv:secrets*.env
-    - staging
-  env:
-    HOST: localhost
-
-staging:
-  extends:
-    - prod
-    - dotenv:secrets.env
-  env:
-    HOST: staging.example.com
-    DEBUG: true
-    STAGES: false
-
-prod:
-  extends:
-    - dotenv:secrets2.env
-  env:
-    HOST: prod.example.com
-    PORT: 80
-    DEBUG: false
-// === AGGR: END: envprof.yaml
-
 // === AGGR: BEGIN: internal/cli/common.go
 package cli
 
@@ -1119,13 +1091,11 @@ package envprof
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/idelchi/envprof/internal/profiles"
 	"github.com/idelchi/godyl/pkg/env"
 	"github.com/idelchi/godyl/pkg/path/file"
 	"github.com/idelchi/godyl/pkg/path/files"
-	"github.com/idelchi/godyl/pkg/pretty"
 )
 
 // Type represents the type of the profile file.
@@ -1192,10 +1162,6 @@ func Load(paths files.Files) (profiles.Profiles, file.File, error) {
 
 		profiles[name] = profile
 	}
-
-	pretty.PrintYAML(profiles["dev"])
-
-	os.Exit(0)
 
 	return profiles, file, nil
 }
@@ -1684,16 +1650,17 @@ package profiles
 import (
 	"fmt"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/idelchi/envprof/internal/extends"
 )
 
 // replay steps
-type StepKind uint8
+type StepKind string
 
 const (
-	StepDotenv StepKind = iota
-	StepProfile
+	StepDotenv  StepKind = "dotenv"
+	StepProfile StepKind = "env"
 )
 
 type Step struct {
@@ -1705,12 +1672,21 @@ type Step struct {
 type Steps []Step
 
 func (s Steps) Chain() string {
-	var out []string
-	for _, step := range s {
-		out = append(out, step.Name)
-	}
+	var b strings.Builder
+	w := tabwriter.NewWriter(&b, 0, 4, 2, ' ', 0)
 
-	return strings.Join(out, " -> ")
+	fmt.Fprintln(w, "STEP\tPROFILE\tKIND\tNAME")
+	for i, st := range s {
+		kind := map[StepKind]string{StepDotenv: "dotenv", StepProfile: "env"}[st.Kind]
+		owner := st.Owner
+		if owner == "" {
+			owner = st.Name // for env steps, owner == profile
+			st.Name = ""    // no name for env steps
+		}
+		fmt.Fprintf(w, "%02d\t%s\t%s\t%s\n", i+1, owner, kind, st.Name)
+	}
+	_ = w.Flush()
+	return b.String()
 }
 
 func (p Profiles) Plan(root string) (Steps, error) {
@@ -2023,7 +1999,6 @@ func main() {
 
 tree
 .
-├── envprof.yaml
 ├── internal
 │   ├── cli
 │   │   ├── common.go
@@ -2071,4 +2046,4 @@ tree
 │       └── terminal.go
 └── main.go
 
-37 files
+36 files

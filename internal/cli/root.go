@@ -98,6 +98,7 @@ func Execute(version string) error {
 		Write(options),
 		Shell(options),
 		Exec(options),
+		Diff(options),
 	)
 
 	if err := root.Execute(); err != nil {

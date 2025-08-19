@@ -21,8 +21,8 @@ type Diff struct {
 	Changed []Change // present in both, different values
 }
 
-// DiffEnvs computes a structured diff of two environments.
-func DiffEnvs(a, b env.Env) Diff {
+// Diffs computes a structured diff of two environments.
+func Diffs(a, b env.Env) Diff {
 	// Normalize for platform semantics (e.g., Windows case-insensitivity).
 	a = a.Normalized()
 	b = b.Normalized()

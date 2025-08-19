@@ -15,6 +15,9 @@ type Profile struct {
 	Output string
 	// Default indicates whether this profile is the default one.
 	Default bool
+
+	// The default command for exec when none is given.
+	Command []string
 }
 
 // ToEnv converts the profile to an environment representation,
