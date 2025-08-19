@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Origin tracks a key to it's source.
+// Origin tracks environment variable keys to their sources.
 type Origin map[string]Heritage
 
 // Add adds a new origin for the given keys.
@@ -22,10 +22,10 @@ func (o *Origin) Clear(keys ...string) {
 	}
 }
 
-// Heritage represents the origin parts of a key.
+// Heritage represents the inheritance chain of an environment variable.
 type Heritage []string
 
-// String returns the string representation of the origin parts.
+// String returns the string representation of the heritage chain.
 func (h Heritage) String() string {
 	result := make([]string, 0, len(h))
 

@@ -54,12 +54,7 @@ func (e *Environment) OverlayDotEnv(path, profile string) error {
 		return err
 	}
 
-	if e.Name == profile {
-		e.Origin.Clear(env.Keys()...)
-	} else {
-		e.Origin.Clear(env.Keys()...)
-		e.Origin.Add(profile, env.Keys()...)
-	}
+	e.UpdateOrigin(profile, env)
 
 	e.Origin.Add(path, env.Keys()...)
 
@@ -68,17 +63,22 @@ func (e *Environment) OverlayDotEnv(path, profile string) error {
 	return nil
 }
 
-// OverlayOther overlays the environment variables from another environment.
-func (e *Environment) OverlayOther(other Environment) {
-	env := other.Env
-	profile := other.Name
-
+// UpdateOrigin updates the origin of the environment variables.
+func (e *Environment) UpdateOrigin(profile string, env env.Env) {
 	if e.Name == profile {
 		e.Origin.Clear(env.Keys()...)
 	} else {
 		e.Origin.Clear(env.Keys()...)
 		e.Origin.Add(profile, env.Keys()...)
 	}
+}
+
+// OverlayOther overlays the environment variables from another environment.
+func (e *Environment) OverlayOther(other Environment) {
+	env := other.Env
+	profile := other.Name
+
+	e.UpdateOrigin(profile, env)
 
 	e.Env = other.Env.MergedWith(e.Env)
 }

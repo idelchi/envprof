@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
@@ -23,15 +25,30 @@ func Profiles(options *Options) *cobra.Command {
 		Aliases: []string{"profs"},
 		Args:    cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			profiles, err := LoadProfiles(options)
+			envprof, err := LoadEnvProf(options)
 			if err != nil {
 				return err
 			}
 
 			// It's not important if the active profile is existing or not.
-			name, _ := profiles.GetOrDefault(options.Profile)
+			name, _ := envprof.GetOrDefault(options.Profile)
 
-			for _, profile := range profiles.Names() {
+			profiles := envprof.Profiles().Names()
+
+			if options.Verbose {
+				slices.SortFunc(profiles, func(first, second string) int {
+					if first == name {
+						return -1
+					}
+					if second == name {
+						return 1
+					}
+
+					return strings.Compare(first, second)
+				})
+			}
+
+			for _, profile := range profiles {
 				//nolint:forbidigo	// Command prints out to the console.
 				fmt.Println(formatProfile(profile, options.Verbose, profile == name))
 			}
@@ -45,7 +62,7 @@ func Profiles(options *Options) *cobra.Command {
 	return cmd
 }
 
-// formatProfile optionally marks out the active profile.
+// formatProfile formats a profile name with optional decoration to mark the active profile.
 func formatProfile(profile string, decorate, isActive bool) string {
 	if !decorate {
 		return profile

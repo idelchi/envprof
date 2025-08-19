@@ -17,7 +17,7 @@ type Formatter struct {
 	Padding int
 }
 
-// Key formats a environment variable for output.
+// Key formats an environment variable for output.
 func (f Formatter) Key(key string, environment Environment) string {
 	if f.Padding == 0 {
 		f.Padding = 60

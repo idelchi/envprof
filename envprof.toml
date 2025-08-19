@@ -1,0 +1,17 @@
+[dev]
+default = true
+output = 'development.env'
+extends = ['staging']
+[dev.env]
+HOST = 'localhost'
+
+[staging]
+extends = ['prod', 'dotenv:secrets.env']
+[staging.env]
+DEBUG = true
+HOST = 'staging.example.com'
+
+[prod.env]
+DEBUG = false
+HOST = 'prod.example.com'
+PORT = 80

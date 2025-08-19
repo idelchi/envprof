@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Options represent the root level configuration.
+// Options represents the root level configuration for the CLI application.
 type Options struct {
 	// EnvProf is the list of candidate profile files to load.
 	EnvProf []string

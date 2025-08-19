@@ -4,10 +4,11 @@ import (
 	"fmt"
 
 	"github.com/idelchi/envprof/internal/environment"
+	"github.com/idelchi/envprof/internal/step"
 )
 
 // Environment returns a fully resolved environment for a specific profile.
-func (p Profiles) Environment(name string, steps Steps) (environment.Environment, error) {
+func (p Profiles) Environment(name string, steps step.Steps) (environment.Environment, error) {
 	cur, err := p.Get(name)
 	if err != nil {
 		return environment.Environment{}, err
@@ -15,46 +16,38 @@ func (p Profiles) Environment(name string, steps Steps) (environment.Environment
 
 	out := environment.New(name, cur.Output)
 
-	for _, step := range steps {
-		switch step.Kind {
-		case StepDotenv:
-			if err := out.OverlayDotEnv(step.Name, step.Owner); err != nil {
-				return out, fmt.Errorf("profile %q: dotenv %q: %w", step.Owner, step.Name, err)
+	for _, stp := range steps {
+		switch stp.Kind {
+		case step.DotEnv:
+			if err := out.OverlayDotEnv(stp.Name, stp.Owner); err != nil {
+				return out, fmt.Errorf("profile %q: dotenv %q: %w", stp.Owner, stp.Name, err)
 			}
-		case StepProfile:
-			pr, err := p.Get(step.Name)
+		case step.Profile:
+			pr, err := p.Get(stp.Name)
 			if err != nil {
 				return out, err
 			}
 
-			pe, err := pr.ToEnv(step.Name)
+			pe, err := pr.ToEnv(stp.Name)
 			if err != nil {
-				return out, fmt.Errorf("stringify %q: %w", step.Name, err)
+				return out, fmt.Errorf("stringify %q: %w", stp.Name, err)
 			}
 
 			out.OverlayOther(pe)
-		case StepOverlay:
-			steps, err := p.Plan(step.Name)
+		case step.Overlay:
+			steps, err := p.Plan(stp.Name)
 			if err != nil {
-				return out, fmt.Errorf("applying overlay %q: %w", step.Name, err)
+				return out, fmt.Errorf("applying overlay %q: %w", stp.Name, err)
 			}
-			e, err := p.Environment(step.Name, steps)
+
+			e, err := p.Environment(stp.Name, steps)
 			if err != nil {
-				return out, fmt.Errorf("applying overlay %q: %w", step.Name, err)
+				return out, fmt.Errorf("applying overlay %q: %w", stp.Name, err)
 			}
 
 			out.OverlayOther(e)
 		}
 	}
-
-	// for _, ov := range overlays {
-	// 	e, err := p.Environment(ov)
-	// 	if err != nil {
-	// 		return out, fmt.Errorf("applying overlay %q: %w", ov, err)
-	// 	}
-
-	// 	out.OverlayOther(e)
-	// }
 
 	return out, nil
 }
@@ -66,6 +59,7 @@ func (p Profiles) Environments() (environments []environment.Environment, err er
 		if err != nil {
 			return nil, err
 		}
+
 		env, err := p.Environment(name, steps)
 		if err != nil {
 			return nil, err

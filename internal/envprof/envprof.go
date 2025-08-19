@@ -20,7 +20,7 @@ const (
 	TOML Type = "toml"
 )
 
-// EnvProf represents the environment profile file.
+// EnvProf represents an environment profile file and its loaded content.
 type EnvProf struct {
 	file     file.File
 	format   Type
@@ -47,7 +47,7 @@ func (e *EnvProf) File() file.File {
 	return e.file
 }
 
-// Type resolves the type of the file from the extension.
+// Type determines and sets the file format based on the file extension.
 func (e *EnvProf) Type() error {
 	switch ext := e.file.Extension(); ext {
 	case "yaml", "yml":

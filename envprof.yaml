@@ -2,8 +2,8 @@ dev:
   default: true
   output: development.env
   extends:
+    - dotenv:secrets*.env
     - staging
-    - dotenv:secrets3.env
   env:
     HOST: localhost
 
@@ -23,3 +23,13 @@ prod:
     HOST: prod.example.com
     PORT: 80
     DEBUG: false
+
+active:
+  env:
+    HOST: localhost
+
+compared:
+  env:
+    HOST: localhosts
+    BROKER: localhost:9092
+    ROWER: "{{ .SHAWTAY }}:2222"

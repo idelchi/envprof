@@ -12,19 +12,6 @@ import (
 // Profiles is a map of profile names to their metadata.
 type Profiles map[string]profile.Profile
 
-// GetOrDefault returns the profile name if it exists, or the default profile if none is specified.
-func (p Profiles) GetOrDefault(name string) (string, error) {
-	if name == "" {
-		name = p.Default()
-	}
-
-	if name == "" {
-		return "", errors.New("no default profile found and none specified")
-	}
-
-	return name, nil
-}
-
 // Exists checks if a profile exists in the profiles.
 func (p Profiles) Exists(name string) bool {
 	_, ok := p[name]
@@ -83,8 +70,8 @@ func (p Profiles) Validate() error {
 	return errors.Join(errs...)
 }
 
-// get attempts to retrieve a profile by name.
-// Errors for empty or non-existing profile names.
+// Get retrieves a profile by name.
+// Returns an error for empty or non-existing profile names.
 func (p Profiles) Get(name string) (profile.Profile, error) {
 	if name == "" {
 		return profile.Profile{}, errors.New("empty profile name")

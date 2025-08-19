@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Extend represents a extend entry.
+// Extend represents an extension entry that can reference profiles or dotenv files.
 type Extend string
 
 const (
@@ -38,9 +38,9 @@ func (e Extend) Path() string {
 	return strings.TrimPrefix(strings.TrimPrefix(string(e), string(e.Type())), ":")
 }
 
-// ToType converts the extend entry to its type.
+// ToType converts a slice of strings to Extend entries with the specified type prefix.
 func ToType(e []string, t Extend) []Extend {
-	var extends []Extend
+	extends := make([]Extend, 0, len(e))
 
 	for _, s := range e {
 		extends = append(extends, Extend(fmt.Sprintf("%s:%s", t, s)))
@@ -49,12 +49,12 @@ func ToType(e []string, t Extend) []Extend {
 	return extends
 }
 
-// Extends represents a list of extend entries.
+// Extends represents a slice of extension entries.
 type Extends []Extend
 
 // Valid checks if all extend entries are valid.
-func (es Extends) Valid() error {
-	for _, e := range es {
+func (es *Extends) Valid() error {
+	for _, e := range *es {
 		if e.Type() == Invalid {
 			return errors.New("invalid extend: " + string(e))
 		}
@@ -63,6 +63,7 @@ func (es Extends) Valid() error {
 	return nil
 }
 
+// Resolve expands glob patterns in dotenv extends and resolves all entries.
 func (es *Extends) Resolve() error {
 	var extends Extends
 

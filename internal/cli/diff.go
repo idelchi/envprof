@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"os"
+	"fmt"
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
@@ -36,7 +36,16 @@ func Diff(options *Options) *cobra.Command {
 				return err
 			}
 
-			if err := environment.Diffs(env1.Env, env2.Env).RenderUnified(os.Stdout, env1.Name, env2.Name); err != nil {
+			diff := environment.Diffs(env1.Env, env2.Env)
+
+			if diff.Equal() {
+				//nolint:forbidigo	// Command prints out to the console.
+				fmt.Println("No differences found.")
+
+				return nil
+			}
+
+			if err := diff.Render(env1.Name, env2.Name); err != nil {
 				return err
 			}
 

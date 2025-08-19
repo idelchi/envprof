@@ -9,6 +9,7 @@ import (
 	"github.com/idelchi/envprof/internal/environment"
 	"github.com/idelchi/envprof/internal/envprof"
 	"github.com/idelchi/envprof/internal/profiles"
+	"github.com/idelchi/envprof/internal/step"
 	"github.com/idelchi/godyl/pkg/path/files"
 )
 
@@ -47,7 +48,7 @@ func LoadProfiles(options *Options) (profiles.Profiles, error) {
 }
 
 // LoadPlan returns the plan for the specified profile.
-func LoadPlan(options *Options) (profiles.Profiles, string, profiles.Steps, error) {
+func LoadPlan(options *Options) (profiles.Profiles, string, step.Steps, error) {
 	envprof, err := LoadEnvProf(options)
 	if err != nil {
 		return nil, "", nil, err

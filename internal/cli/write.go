@@ -66,7 +66,7 @@ func Write(options *Options) *cobra.Command {
 	return cmd
 }
 
-// environment returns the selected subset of environments based on the cli settings.
+// environments returns the selected subset of environments based on the CLI settings.
 func environments(all bool, options *Options, args []string) (environments []environment.Environment) {
 	switch {
 	case all:

@@ -2,23 +2,30 @@ package environment
 
 import (
 	"fmt"
-	"io"
 	"slices"
 	"strings"
 
 	"github.com/idelchi/godyl/pkg/env"
 )
 
+// Change represents a single environment variable that has changed between two environments.
 type Change struct {
+	// Key is the environment variable name.
 	Key string
+	// Old is the previous value of the variable.
 	Old string
+	// New is the current value of the variable.
 	New string
 }
 
+// Diff represents the differences between two environments.
 type Diff struct {
-	Added   env.Env  // present in B, not in A
-	Removed env.Env  // present in A, not in B
-	Changed []Change // present in both, different values
+	// Added contains variables present in B but not in A.
+	Added env.Env
+	// Removed contains variables present in A but not in B.
+	Removed env.Env
+	// Changed contains variables present in both with different values.
+	Changed []Change
 }
 
 // Diffs computes a structured diff of two environments.
@@ -33,23 +40,23 @@ func Diffs(first, second env.Env) Diff {
 	}
 
 	// Removed / Changed
-	for _, k := range first.Keys() {
-		av := first.Get(k)
-		if !second.Exists(k) {
-			out.Removed[k] = av
+	for _, key := range first.Keys() {
+		oldValue := first.Get(key)
+		if !second.Exists(key) {
+			out.Removed[key] = oldValue
 
 			continue
 		}
 
-		if bv := second.Get(k); av != bv {
-			out.Changed = append(out.Changed, Change{Key: k, Old: av, New: bv})
+		if bv := second.Get(key); oldValue != bv {
+			out.Changed = append(out.Changed, Change{Key: key, Old: oldValue, New: bv})
 		}
 	}
 
 	// Added
-	for _, k := range second.Keys() {
-		if !first.Exists(k) {
-			out.Added[k] = second.Get(k)
+	for _, key := range second.Keys() {
+		if !first.Exists(key) {
+			out.Added[key] = second.Get(key)
 		}
 	}
 
@@ -64,25 +71,27 @@ func (d Diff) Equal() bool {
 	return len(d.Added) == 0 && len(d.Removed) == 0 && len(d.Changed) == 0
 }
 
-// RenderUnified prints a git-like unified diff.
+// Render prints a git-like unified diff.
 // Lines: + added, - removed, ~ changed ("old -> new").
 // aName/bName are labels (e.g., "env1", "env2").
-func (d Diff) RenderUnified(w io.Writer, aName, bName string) error {
-	fmt.Fprintf(w, "--- %s\n+++ %s\n", aName, bName)
+//
+//nolint:forbidigo	// Function prints out to the console.
+func (d Diff) Render(aName, bName string) error {
+	fmt.Printf("--- %s\n+++ %s\n", aName, bName)
 
 	addKeys := d.Added.Keys()
 	rmKeys := d.Removed.Keys()
 
 	for _, k := range rmKeys {
-		fmt.Fprintf(w, "%s %s=%q\n", "-", k, d.Removed[k])
+		fmt.Printf("%s %s=%q\n", "-", k, d.Removed[k])
 	}
 
 	for _, k := range addKeys {
-		fmt.Fprintf(w, "%s %s=%q\n", "+", k, d.Added[k])
+		fmt.Printf("%s %s=%q\n", "+", k, d.Added[k])
 	}
 
 	for _, ch := range d.Changed {
-		fmt.Fprintf(w, "%s %s: %q -> %q\n", "~", ch.Key, ch.Old, ch.New)
+		fmt.Printf("%s %s: %q -> %q\n", "~", ch.Key, ch.Old, ch.New)
 	}
 
 	return nil

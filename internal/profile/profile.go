@@ -5,7 +5,7 @@ import (
 	"github.com/idelchi/envprof/internal/extends"
 )
 
-// Profile holds metadata plus an env-var map.
+// Profile represents a configuration profile with environment variables and metadata.
 type Profile struct {
 	// Env is a collection of environment variables.
 	Env Env
@@ -15,9 +15,6 @@ type Profile struct {
 	Output string
 	// Default indicates whether this profile is the default one.
 	Default bool
-
-	// The default command for exec when none is given.
-	Command []string
 }
 
 // ToEnv converts the profile to an environment representation,

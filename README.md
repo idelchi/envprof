@@ -15,10 +15,6 @@
 
 `envprof` is a CLI tool for managing named environment profiles in `YAML` or `TOML`.
 
-Supports profile inheritance (layering) and importing of `.env` files.
-
-## Features
-
 - Define multiple environment profiles in a single YAML or TOML file, with inheritance and dotenv support
 - List profiles, write to `.env` files or export to the current shell,
   execute a command or spawn a subshell with the selected environment
@@ -70,23 +66,59 @@ envprof --profile dev exec -- ls -la
 
 ## Configuration
 
-The following keys are supported:
+Each profile supports the following keys:
 
-- `default`: Marks the profile as the default to use when none is specified with `--profile`
-- `output`: Specifies the default output file for the `write` subcommand if none is provided with `[file]`
-- `extends`: Lists profiles and `dotenv` files to inherit from
-- `env`: Defines environment variables for the profile
+- `default` – mark this profile as the default if `--profile` is not given
+- `output` – file to write with the `write` subcommand (defaults to `<profile>.env`)
+- `extends` – list of other profiles or `.env` files to inherit from
+- `env` – environment variables defined directly in this profile
 
-For `extends`, use `profile:<name>` or `dotenv:<path>` to specify the type. If the leading part is omitted, it defaults to `profile:`.
-As a consequence, using `:` inside profile names is not allowed.
+### Extends
 
-`dotenv` files allow for environment variable expansion in the path segment using `${VAR}` syntax.
-If not absolute, they are imported relative to the current directory.
+Entries can point to either profiles or dotenv files:
 
-`env` is serialized according to:
+- `profile:<name>` – another profile
+- `dotenv:<path>` – a dotenv file
 
-- Complex types (arrays, maps) are serialized as JSON; all other values are simple strings.
-- Non-scalars are emitted as minified JSON wrapped in single quotes.
+If the prefix is omitted, `profile:` is assumed.
+
+⚠️ If your profile name contains a `:`, always use the explicit `profile:` form.
+
+Dotenv paths are resolved relative to the current working directory unless absolute. Globs are supported (see `filepath.Glob`).
+
+### Env
+
+- Scalars (strings, numbers, booleans) are emitted as plain strings.
+- Complex values (arrays, maps) are serialized as compact JSON and wrapped in single quotes.
+
+Example:
+
+```yaml
+env:
+  PORT: 5432
+  FEATURES:
+    - x
+    - y
+  CONFIG:
+    foo: bar
+```
+
+→
+
+```bash
+PORT=5432
+FEATURES='["x","y"]'
+CONFIG='{"foo":"bar"}'
+```
+
+### Templating
+
+The entire configuration file is processed as a Go template:
+
+- Access environment variables with `{{ .HOME }}`
+- Provide fallbacks with `{{ .HOME | default "/tmp" }}`
+
+These come from your runtime environment (the process' `os.Environ`), not from profiles.
 
 ### YAML
 
@@ -183,6 +215,15 @@ prod -> secrets.env -> staging -> dev
 
 from lowest to highest priority (left to right).
 
+`envprof --profile dev list --dry` will visualize the layering as a table:
+
+| STEP | PROFILE | KIND   | NAME        |
+| ---- | ------- | ------ | ----------- |
+| 01   | prod    | env    |             |
+| 02   | staging | dotenv | secrets.env |
+| 03   | staging | env    |             |
+| 04   | dev     | env    |             |
+
 ## Flags
 
 All commands accept the following flags:
@@ -209,11 +250,18 @@ the [default profile](#yaml) will be used (if it exists).
 For details, run `envprof <command> --help` for the specific subcommand.
 
 <details>
+<summary><strong>path</strong> — Display the path to the configuration file</summary>
+
+- **Usage:**
+  - `envprof path`
+
+</details>
+
+<details>
 <summary><strong>profiles / profs</strong> — List all profiles</summary>
 
 - **Usage:**
-
-  - `envprof profiles`
+  - `envprof profiles [flags]`
 
 - **Flags:**
   - `--verbose`, `-v` – Mark active profile with asterisk
@@ -224,11 +272,11 @@ For details, run `envprof <command> --help` for the specific subcommand.
 <summary><strong>list / ls</strong> — List profile or the value of a variable in a profile</summary>
 
 - **Usage:**
-
   - `envprof list [flags] [variable]`
 
 - **Flags:**
   - `--oneline`, `-o` – Emit variables on a single line (implies `--verbose=false`)
+  - `--dry`, `-d` – Show the planned layering as a table
   - `--verbose`, `-v` – Show variable origins
 
 </details>
@@ -237,7 +285,6 @@ For details, run `envprof <command> --help` for the specific subcommand.
 <summary><strong>export / x</strong> — Export profile to stdout</summary>
 
 - **Usage:**
-
   - `envprof export [flags]`
 
 - **Flags:**
@@ -251,7 +298,6 @@ For details, run `envprof <command> --help` for the specific subcommand.
 <summary><strong>write / w</strong> — Write profile(s) to file(s)</summary>
 
 - **Usage:**
-
   - `envprof write [flags] [file]`
 
 - **Flags:**
@@ -263,7 +309,6 @@ For details, run `envprof <command> --help` for the specific subcommand.
 <summary><strong>shell / sh</strong> — Spawn a subshell with profile</summary>
 
 - **Usage:**
-
   - `envprof shell [flags]`
 
 - **Flags:**
@@ -277,12 +322,19 @@ For details, run `envprof <command> --help` for the specific subcommand.
 <summary><strong>exec / ex</strong> — Execute a command with profile</summary>
 
 - **Usage:**
-
   - `envprof exec [flags] -- <command> [args...]`
 
 - **Flags:**
   - `--isolate`, `-i` – Prevent inheriting current shell variables
   - `--path`, `-p` – Include the current PATH in the environment
+
+</details>
+
+<details>
+<summary><strong>diff</strong> — Show differences between loaded profile and another profile</summary>
+
+- **Usage:**
+  - `envprof diff <profile>`
 
 </details>
 

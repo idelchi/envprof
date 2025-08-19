@@ -12,7 +12,7 @@ import (
 	"github.com/idelchi/godyl/pkg/path/file"
 )
 
-// replace "simulates" replace: runs child with envExact+dir, then exits with child's code.
+// replace simulates process replacement on Windows by running the command and exiting with its code.
 func replace(path string, args, env []string) error {
 	var command *exec.Cmd
 
