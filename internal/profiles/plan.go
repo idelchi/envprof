@@ -14,6 +14,7 @@ type StepKind string
 const (
 	StepDotenv  StepKind = "dotenv"
 	StepProfile StepKind = "env"
+	StepOverlay StepKind = "overlay"
 )
 
 type Step struct {
@@ -24,25 +25,40 @@ type Step struct {
 
 type Steps []Step
 
-func (s Steps) Chain() string {
+func (s Steps) Table() string {
 	var b strings.Builder
 	w := tabwriter.NewWriter(&b, 0, 4, 2, ' ', 0)
 
 	fmt.Fprintln(w, "STEP\tPROFILE\tKIND\tNAME")
 	for i, st := range s {
-		kind := map[StepKind]string{StepDotenv: "dotenv", StepProfile: "env"}[st.Kind]
-		owner := st.Owner
-		if owner == "" {
-			owner = st.Name // for env steps, owner == profile
-			st.Name = ""    // no name for env steps
+		if st.Owner == "" {
+			st.Owner = st.Name // for env steps, owner == profile
+			st.Name = ""       // no name for env steps
 		}
-		fmt.Fprintf(w, "%02d\t%s\t%s\t%s\n", i+1, owner, kind, st.Name)
+		fmt.Fprintf(w, "%02d\t%s\t%s\t%s\n", i+1, st.Owner, st.Kind, st.Name)
 	}
 	_ = w.Flush()
 	return b.String()
 }
 
-func (p Profiles) Plan(root string) (Steps, error) {
+func (p Profiles) Plan(root string, overlays ...string) (Steps, error) {
+	steps, err := p.plan(root)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, overlay := range overlays {
+		steps = append(steps, Step{
+			Kind:  StepOverlay,
+			Owner: root,
+			Name:  overlay,
+		})
+	}
+
+	return steps, nil
+}
+
+func (p Profiles) plan(root string) (Steps, error) {
 	if _, err := p.Get(root); err != nil {
 		return nil, err
 	}

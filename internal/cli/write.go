@@ -70,7 +70,7 @@ func Write(options *Options) *cobra.Command {
 func environments(all bool, options *Options, args []string) (environments []environment.Environment) {
 	switch {
 	case all:
-		profiles, _, err := loadProfiles(options.EnvProf)
+		profiles, err := LoadProfiles(options)
 		if err != nil {
 			return nil
 		}
@@ -81,7 +81,7 @@ func environments(all bool, options *Options, args []string) (environments []env
 		}
 
 	default:
-		env, err := loadProfile(options)
+		env, err := LoadProfile(options)
 		if err != nil {
 			return nil
 		}

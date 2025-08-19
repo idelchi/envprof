@@ -6,7 +6,6 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/idelchi/envprof/internal/environment"
 	"github.com/idelchi/envprof/internal/profile"
 )
 
@@ -73,68 +72,15 @@ func (p Profiles) Validate() error {
 		errs = append(errs, fmt.Errorf("more than one default profile: %v", defaults))
 	}
 
+	for name, profile := range p {
+		if err := profile.Extends.Resolve(); err != nil {
+			return fmt.Errorf("profile %q: %w", name, err)
+		}
+
+		p[name] = profile
+	}
+
 	return errors.Join(errs...)
-}
-
-// Environments returns a fully resolved list of environments for all profiles.
-func (p Profiles) Environments() (environments []environment.Environment, err error) {
-	for name := range p {
-		env, err := p.Environment(name)
-		if err != nil {
-			return nil, err
-		}
-
-		environments = append(environments, env)
-	}
-
-	return environments, nil
-}
-
-// Environment returns a fully resolved environment for a specific profile.
-func (p Profiles) Environment(name string, overlays ...string) (environment.Environment, error) {
-	cur, err := p.Get(name)
-	out := environment.New(name, cur.Output)
-
-	if err != nil {
-		return out, err
-	}
-
-	plan, err := p.Plan(name)
-	if err != nil {
-		return out, err
-	}
-
-	for _, s := range plan {
-		switch s.Kind {
-		case StepDotenv:
-			if err := out.OverlayDotEnv(s.Name, s.Owner); err != nil {
-				return out, fmt.Errorf("profile %q: dotenv %q: %w", s.Owner, s.Name, err)
-			}
-		case StepProfile:
-			pr, err := p.Get(s.Name)
-			if err != nil {
-				return out, err
-			}
-
-			pe, err := pr.ToEnv(s.Name)
-			if err != nil {
-				return out, fmt.Errorf("stringify %q: %w", s.Name, err)
-			}
-
-			out.OverlayOther(pe)
-		}
-	}
-
-	for _, ov := range overlays {
-		e, err := p.Environment(ov)
-		if err != nil {
-			return out, fmt.Errorf("applying overlay %q: %w", ov, err)
-		}
-
-		out.OverlayOther(e)
-	}
-
-	return out, nil
 }
 
 // get attempts to retrieve a profile by name.

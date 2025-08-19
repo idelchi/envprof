@@ -23,7 +23,7 @@ func Profiles(options *Options) *cobra.Command {
 		Aliases: []string{"profs"},
 		Args:    cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			profiles, _, err := loadProfiles(options.EnvProf)
+			profiles, err := LoadProfiles(options)
 			if err != nil {
 				return err
 			}

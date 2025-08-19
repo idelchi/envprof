@@ -54,7 +54,7 @@ func Shell(options *Options) *cobra.Command {
 				)
 			}
 
-			prof, err := loadProfile(options)
+			prof, err := LoadProfile(options)
 			if err != nil {
 				return err
 			}

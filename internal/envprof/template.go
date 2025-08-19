@@ -7,22 +7,22 @@ import (
 	"github.com/idelchi/godyl/pkg/env"
 )
 
-// Default functions for templating.
-var fn = template.FuncMap{
-	"default": func(val, def string) string {
-		if val == "" {
-			return def
-		}
-		return val
-	},
-}
-
 // Template renders a Go text/template using the provided env map.
 // Template usage: {{ .FOO }} or {{ .FOO | default "fallback" }}.
 func Template(data []byte, env env.Env) ([]byte, error) {
+	functions := template.FuncMap{
+		"default": func(val, def string) string {
+			if val == "" {
+				return def
+			}
+
+			return val
+		},
+	}
+
 	tmpl, err := template.New("env").
 		Option("missingkey=zero").
-		Funcs(fn).
+		Funcs(functions).
 		Parse(string(data))
 	if err != nil {
 		return nil, err

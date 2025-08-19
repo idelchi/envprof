@@ -10,8 +10,6 @@ import (
 )
 
 // Export defines the command for exporting a profile's variables.
-//
-//nolint:forbidigo	// Command prints out to the console.
 func Export(options *Options) *cobra.Command {
 	prefix := "export "
 
@@ -37,7 +35,7 @@ func Export(options *Options) *cobra.Command {
 		Aliases: []string{"x"},
 		Args:    cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			env, err := loadProfile(options)
+			env, err := LoadProfile(options)
 			if err != nil {
 				return err
 			}
@@ -49,6 +47,7 @@ func Export(options *Options) *cobra.Command {
 
 			envs := formatter.All(env)
 
+			//nolint:forbidigo	// Command prints out to the console.
 			fmt.Println(envs)
 
 			return nil

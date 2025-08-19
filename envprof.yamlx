@@ -32,3 +32,4 @@ compared:
   env:
     HOST: localhosts
     BROKER: localhost:9092
+    ROWER: {{ .SHAWTAY }}:2222

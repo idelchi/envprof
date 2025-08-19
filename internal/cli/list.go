@@ -11,11 +11,11 @@ import (
 )
 
 // List returns the cobra command for listing profiles and their variables.
-//
-//nolint:forbidigo	// Command prints out to the console.
 func List(options *Options) *cobra.Command {
-	var oneline bool
-	var planOnly bool
+	var (
+		oneline bool
+		dry     bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list [key]",
@@ -30,24 +30,37 @@ func List(options *Options) *cobra.Command {
 
 			# Show the value of HOST in 'dev'
 			$ envprof --profile dev list HOST
+
+			# List the layering order only
+			$ envprof --profile dev list --dry
 		`),
 		Aliases: []string{"ls"},
-		Args:    cobra.MaximumNArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			if planOnly {
-				steps, err := loadPlan(options)
-				if err != nil {
-					return err
-				}
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.MaximumNArgs(1)(cmd, args); err != nil {
+				return fmt.Errorf(
+					"%q only accepts [key] as an optional argument, received %d arguments: %v",
+					cmd.Name(),
+					len(args),
+					args,
+				)
+			}
 
-				fmt.Println(steps.Chain())
+			return nil
+		},
+		RunE: func(_ *cobra.Command, args []string) error {
+			profiles, profile, steps, err := LoadPlan(options)
+			if err != nil {
+				return err
+			}
+
+			if dry {
+				//nolint:forbidigo	// Command prints out to the console.
+				fmt.Println(steps.Table())
 
 				return nil
 			}
 
-			nArgs := len(args)
-
-			env, err := loadProfile(options)
+			env, err := profiles.Environment(profile, steps)
 			if err != nil {
 				return err
 			}
@@ -63,7 +76,7 @@ func List(options *Options) *cobra.Command {
 				Padding:    padding,
 			}
 
-			if nArgs == 1 {
+			if len(args) == 1 {
 				variable := args[0]
 				if !env.Env.Exists(variable) {
 					return fmt.Errorf("key %q not found in profile %q", variable, env.Name)
@@ -80,6 +93,7 @@ func List(options *Options) *cobra.Command {
 				output = strings.Join(strings.Fields(output), " ")
 			}
 
+			//nolint:forbidigo	// Command prints out to the console.
 			fmt.Println(output)
 
 			return nil
@@ -89,7 +103,7 @@ func List(options *Options) *cobra.Command {
 	cmd.Flags().SortFlags = false
 
 	cmd.Flags().BoolVarP(&oneline, "oneline", "o", false, "Emit variables on a single line")
-	cmd.Flags().BoolVarP(&planOnly, "plan-only", "p", false, "Show only the plan for the profile")
+	cmd.Flags().BoolVarP(&dry, "dry", "d", false, "Show only the plan for the profile")
 
 	return cmd
 }
