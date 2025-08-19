@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Options represent the root level configuration.
+// Options represents the root level configuration for the CLI application.
 type Options struct {
 	// EnvProf is the list of candidate profile files to load.
 	EnvProf []string
@@ -16,6 +16,8 @@ type Options struct {
 	Profile string
 	// Verbose enables verbose output.
 	Verbose bool
+	// Overlay contains the profiles to overlay on top of the current profile.
+	Overlay []string
 }
 
 // Execute runs the root command for the envprof CLI application.
@@ -85,14 +87,18 @@ func Execute(version string) error {
 		StringVarP(&options.Profile, "profile", "p", "", "Profile to activate")
 	root.PersistentFlags().
 		BoolVarP(&options.Verbose, "verbose", "v", false, "Increase verbosity level")
+	root.Flags().
+		StringSliceVarP(&options.Overlay, "overlay", "o", nil, "Profiles to overlay on top of the current profile")
 
 	root.AddCommand(
+		Path(options),
 		Profiles(options),
 		List(options),
 		Export(options),
 		Write(options),
 		Shell(options),
 		Exec(options),
+		Diff(options),
 	)
 
 	if err := root.Execute(); err != nil {

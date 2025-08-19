@@ -7,15 +7,11 @@ import (
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
 
-	"github.com/idelchi/envprof/internal/profile"
+	"github.com/idelchi/envprof/internal/environment"
 	"github.com/idelchi/godyl/pkg/path/file"
 )
 
 // Write defines the command for writing profile variables to one or multiple dotenv files.
-//
-// TODO(Idelchi): Refactor this function to reduce cognitive complexity.
-//
-//nolint:forbidigo,gocognit	// Command prints out to the console.
 func Write(options *Options) *cobra.Command {
 	var all bool
 
@@ -48,45 +44,15 @@ func Write(options *Options) *cobra.Command {
 				)
 			}
 
-			profiles, err := loadProfiles(options.EnvProf)
-			if err != nil {
-				return err
-			}
+			environments := environments(all, options, args)
 
-			var dotenvs []profile.DotEnv
-			switch {
-			case all:
-				profs := profiles.Names()
-				dotenvs = make([]profile.DotEnv, 0, len(profs))
-				for _, prof := range profs {
-					output := file.New(profiles.Output(prof))
-					dotenvs = append(dotenvs, profile.DotEnv{Profile: prof, Path: output})
-				}
-			default:
-				prof, err := profileOrDefault(profiles, options.Profile)
-				if err != nil {
+			for _, environment := range environments {
+				if err := environment.Write(); err != nil {
 					return err
 				}
 
-				output := file.New(profiles.Output(prof))
-				if nArgs == 1 {
-					output = file.New(args[0])
-				}
-
-				dotenvs = []profile.DotEnv{{Profile: prof, Path: output}}
-			}
-
-			for _, dotenv := range dotenvs {
-				profile, err := profiles.Environment(dotenv.Profile)
-				if err != nil {
-					return err
-				}
-
-				if err := profile.ToDotEnv(dotenv.Path); err != nil {
-					return err
-				}
-
-				fmt.Printf("Wrote profile %q to %q\n", dotenv.Profile, dotenv.Path)
+				//nolint:forbidigo		// Command prints out to the console.
+				fmt.Printf("Wrote profile %q to %q\n", environment.Name, environment.Output)
 			}
 
 			return nil
@@ -98,4 +64,34 @@ func Write(options *Options) *cobra.Command {
 	cmd.Flags().BoolVarP(&all, "all", "a", false, "Write all profiles, ignoring the active profile")
 
 	return cmd
+}
+
+// environments returns the selected subset of environments based on the CLI settings.
+func environments(all bool, options *Options, args []string) (environments []environment.Environment) {
+	switch {
+	case all:
+		profiles, err := LoadProfiles(options)
+		if err != nil {
+			return nil
+		}
+
+		environments, err = profiles.Environments()
+		if err != nil {
+			return nil
+		}
+
+	default:
+		env, err := LoadProfile(options)
+		if err != nil {
+			return nil
+		}
+
+		if len(args) == 1 {
+			env.Output = file.New(args[0])
+		}
+
+		environments = []environment.Environment{env}
+	}
+
+	return environments
 }

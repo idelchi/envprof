@@ -12,8 +12,6 @@ import (
 )
 
 // Shell returns the cobra command for entering a scoped shell with the active environment.
-//
-//nolint:forbidigo	// Command prints out to the console.
 func Shell(options *Options) *cobra.Command {
 	environment := env.FromEnv()
 
@@ -56,7 +54,7 @@ func Shell(options *Options) *cobra.Command {
 				)
 			}
 
-			prof, err := loadProfile(options.EnvProf, options.Profile)
+			prof, err := LoadProfile(options)
 			if err != nil {
 				return err
 			}
@@ -75,6 +73,7 @@ func Shell(options *Options) *cobra.Command {
 				shell = terminal.Current()
 			}
 
+			//nolint:forbidigo	// Command prints out to the console.
 			fmt.Printf(
 				"Entering shell %q with profile %q...\n",
 				file.New(shell).WithoutExtension().Base(),

@@ -1,9 +1,6 @@
 dev:
-  # Default profile to use when none is set with `--profile`
   default: true
-  # Default output name for the `write` subcommand if not overridden by arguments
   output: development.env
-  # Extend from other profiles
   extends:
     - staging
   env:
@@ -12,9 +9,7 @@ dev:
 staging:
   extends:
     - prod
-  # Import dotenv files (relative to the current directory), supporting environment variables
-  dotenv:
-    - assets/examples/secrets.env
+    - dotenv:assets/examples/secrets.env
   env:
     HOST: staging.example.com
     DEBUG: true

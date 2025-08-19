@@ -52,7 +52,7 @@ func Stringify(v any) (string, error) {
 }
 
 // needsQuotes returns true if the string contains characters that
-// are troublesome in a dotenv line (space, =, #, quotes, etc.).
+// require quoting in a dotenv file (space, =, #, quotes, etc.).
 func needsQuotes(s string) bool {
 	if s == "" {
 		return false

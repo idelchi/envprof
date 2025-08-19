@@ -5,11 +5,11 @@ import (
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
+
+	"github.com/idelchi/envprof/internal/environment"
 )
 
 // Export defines the command for exporting a profile's variables.
-//
-//nolint:forbidigo	// Command prints out to the console.
 func Export(options *Options) *cobra.Command {
 	prefix := "export "
 
@@ -35,13 +35,19 @@ func Export(options *Options) *cobra.Command {
 		Aliases: []string{"x"},
 		Args:    cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			vars, err := loadProfile(options.EnvProf, options.Profile)
+			env, err := LoadProfile(options)
 			if err != nil {
 				return err
 			}
 
-			envs := vars.FormatAll(prefix, false)
+			formatter := environment.Formatter{
+				WithKey: true,
+				Prefix:  prefix,
+			}
 
+			envs := formatter.All(env)
+
+			//nolint:forbidigo	// Command prints out to the console.
 			fmt.Println(envs)
 
 			return nil

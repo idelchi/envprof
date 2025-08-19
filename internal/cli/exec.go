@@ -39,15 +39,15 @@ func Exec(options *Options) *cobra.Command {
 		Aliases: []string{"ex"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			prof, err := loadProfile(options.EnvProf, options.Profile)
+			profile, err := LoadProfile(options)
 			if err != nil {
 				return err
 			}
 
 			if !isolate {
-				prof.Env.Merge(environment)
+				profile.Env.Merge(environment)
 			} else if path {
-				prof.Env.Merge(env.Env{"PATH": environment.Get("PATH")})
+				profile.Env.Merge(env.Env{"PATH": environment.Get("PATH")})
 			}
 
 			cmd := args[0]
@@ -58,7 +58,7 @@ func Exec(options *Options) *cobra.Command {
 				args = nil
 			}
 
-			if err := execx.Replace(cmd, args, prof.Env.AsSlice()); err != nil {
+			if err := execx.Replace(cmd, args, profile.Env.AsSlice()); err != nil {
 				return err
 			}
 

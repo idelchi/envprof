@@ -6,60 +6,77 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/idelchi/envprof/internal/profile"
+	"github.com/idelchi/envprof/internal/environment"
+	"github.com/idelchi/envprof/internal/envprof"
+	"github.com/idelchi/envprof/internal/profiles"
+	"github.com/idelchi/envprof/internal/step"
 	"github.com/idelchi/godyl/pkg/path/files"
 )
 
-// loadProfiles loads the profile store from the specified file and fallbacks.
-func loadProfiles(paths []string) (profile.Profiles, error) {
-	file, ok := files.New("", paths...).Exists()
-	if !ok {
-		return nil, fmt.Errorf("profile file not found: searched for %v", paths)
-	}
-
-	profiles, err := profile.New(file)
+// EnvProf returns the envprof instance, resolving only the file path.
+func EnvProf(options *Options) (*envprof.EnvProf, error) {
+	envprof, err := envprof.NewFrom(files.New("", options.EnvProf...))
 	if err != nil {
 		return nil, err
 	}
 
-	store, err := profiles.Load()
-	if err != nil {
-		return nil, fmt.Errorf("loading profile from %s: %w", file.String(), err)
-	}
-
-	return store.Profiles, nil
+	return envprof, nil
 }
 
-// loadProfile loads the profile variables from the specified file and fallbacks.
-func loadProfile(paths []string, name string) (*profile.InheritanceTracker, error) {
-	profiles, err := loadProfiles(paths)
+// LoadEnvProf returns the loaded envprof instance.
+func LoadEnvProf(options *Options) (*envprof.EnvProf, error) {
+	envprof, err := EnvProf(options)
 	if err != nil {
 		return nil, err
 	}
 
-	name, err = profileOrDefault(profiles, name)
-	if err != nil {
+	if err := envprof.Load(); err != nil {
 		return nil, err
 	}
 
-	vars, err := profiles.Environment(name)
-	if err != nil {
-		return nil, err
-	}
-
-	return vars, nil
+	return envprof, nil
 }
 
-// profileOrDefault returns the profile or the default profile if not found.
-func profileOrDefault(profiles profile.Profiles, name string) (string, error) {
-	if name == "" {
-		name = profiles.Default()
-		if name == "" {
-			return "", errors.New("no default profile found and none specified with --profile")
-		}
+// LoadProfiles returns the existing profiles.
+func LoadProfiles(options *Options) (profiles.Profiles, error) {
+	envprof, err := LoadEnvProf(options)
+	if err != nil {
+		return nil, err
 	}
 
-	return name, nil
+	return envprof.Profiles(), nil
+}
+
+// LoadPlan returns the plan for the specified profile.
+func LoadPlan(options *Options) (profiles.Profiles, string, step.Steps, error) {
+	envprof, err := LoadEnvProf(options)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	profile, err := envprof.GetOrDefault(options.Profile)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	profiles := envprof.Profiles()
+
+	steps, err := profiles.Plan(profile, options.Overlay...)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	return profiles, profile, steps, nil
+}
+
+// LoadProfile returns the loaded and resolved profile.
+func LoadProfile(options *Options) (environment.Environment, error) {
+	profiles, profile, steps, err := LoadPlan(options)
+	if err != nil {
+		return environment.Environment{}, err
+	}
+
+	return profiles.Environment(profile, steps)
 }
 
 // UnknownSubcommandAction handles unknown cobra subcommands.

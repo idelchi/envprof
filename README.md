@@ -15,10 +15,6 @@
 
 `envprof` is a CLI tool for managing named environment profiles in `YAML` or `TOML`.
 
-Supports profile inheritance (layering) and importing of `.env` files.
-
-## Features
-
 - Define multiple environment profiles in a single YAML or TOML file, with inheritance and dotenv support
 - List profiles, write to `.env` files or export to the current shell,
   execute a command or spawn a subshell with the selected environment
@@ -68,21 +64,68 @@ eval "$(envprof --profile dev export)"
 envprof --profile dev exec -- ls -la
 ```
 
-## Format
+## Configuration
 
-Complex types (arrays, maps) are serialized as JSON; all other values are simple strings.
+Each profile supports the following keys:
 
-Non-scalars are emitted as minified JSON wrapped in single quotes.
+- `default` – mark this profile as the default if `--profile` is not given
+- `output` – file to write with the `write` subcommand (defaults to `<profile>.env`)
+- `extends` – list of other profiles or `.env` files to inherit from
+- `env` – environment variables defined directly in this profile
+
+### Extends
+
+Entries can point to either profiles or dotenv files:
+
+- `profile:<name>` – another profile
+- `dotenv:<path>` – a dotenv file
+
+If the prefix is omitted, `profile:` is assumed.
+
+⚠️ If your profile name contains a `:`, always use the explicit `profile:` form.
+
+Dotenv paths are resolved relative to the current working directory unless absolute. Globs are supported (see `filepath.Glob`).
+
+### Env
+
+- Scalars (strings, numbers, booleans) are emitted as plain strings.
+- Complex values (arrays, maps) are serialized as compact JSON and wrapped in single quotes.
+
+Example:
+
+```yaml
+env:
+  PORT: 5432
+  FEATURES:
+    - x
+    - y
+  CONFIG:
+    foo: bar
+```
+
+→
+
+```bash
+PORT=5432
+FEATURES='["x","y"]'
+CONFIG='{"foo":"bar"}'
+```
+
+### Templating
+
+The entire configuration file is processed as a Go template:
+
+- Access environment variables with `{{ .HOME }}`
+- Provide fallbacks with `{{ .HOME | default "/tmp" }}`
+
+These come from your runtime environment (the process' `os.Environ`), not from profiles.
 
 ### YAML
 
 ```yaml
 dev:
-  # Default profile to use when none is set with `--profile`
   default: true
-  # Default output name for the `write` subcommand if not overridden by arguments
   output: development.env
-  # Extend from other profiles
   extends:
     - staging
   env:
@@ -91,9 +134,7 @@ dev:
 staging:
   extends:
     - prod
-  # Import dotenv files (relative to the current directory), supporting environment variables
-  dotenv:
-    - secrets.env
+    - dotenv:secrets.env
   env:
     HOST: staging.example.com
     DEBUG: true
@@ -118,19 +159,14 @@ dev:
 
 ```toml
 [dev]
-# Default profile to use when none is set with `--profile`
 default = true
-# Default output name for the `write` subcommand if not overridden by arguments
 output = 'development.env'
-# Extend from other profiles
 extends = ['staging']
 [dev.env]
 HOST = 'localhost'
 
 [staging]
-extends = ['prod']
-# Import dotenv files (relative to the current directory), supporting environment variables
-dotenv = ['secrets.env']
+extends = ['prod', 'dotenv:secrets.env']
 [staging.env]
 DEBUG = true
 HOST = 'staging.example.com'
@@ -143,8 +179,7 @@ PORT = 80
 
 ## Inheritance Behavior
 
-Inheritance is resolved in order: later profiles override earlier ones.
-Within each profile, `dotenv` files load before that profile’s environment variables.
+Inheritance is resolved in order: later imports override earlier ones.
 
 As an example, running `envprof --profile dev write .env` with the previous YAML definition
 as well as a sample `secrets.env`:
@@ -169,7 +204,7 @@ TOKEN=secret
 DEBUG=true              (inherited from "staging")
 HOST=localhost
 PORT=80                 (inherited from "prod")
-TOKEN=secret            (inherited from "secrets.env")
+TOKEN=secret            (inherited from "staging" -> "secrets.env")
 ```
 
 The layering order here is:
@@ -180,6 +215,15 @@ prod -> secrets.env -> staging -> dev
 
 from lowest to highest priority (left to right).
 
+`envprof --profile dev list --dry` will visualize the layering as a table:
+
+| STEP | PROFILE | KIND   | NAME        |
+| ---- | ------- | ------ | ----------- |
+| 01   | prod    | env    |             |
+| 02   | staging | dotenv | secrets.env |
+| 03   | staging | env    |             |
+| 04   | dev     | env    |             |
+
 ## Flags
 
 All commands accept the following flags:
@@ -187,6 +231,7 @@ All commands accept the following flags:
 ```sh
 --file, -f      - Specify the profile file(s) to load
 --profile, -p   - Specify the profile to use
+--overlay, -o   - Overlay other profiles
 --verbose, -v   - Increase verbosity
 ```
 
@@ -196,6 +241,8 @@ Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.tom
 `--profile` specifies the profile to activate. If no profile is specified,
 the [default profile](#yaml) will be used (if it exists).
 
+`--overlay` allows you to specify additional profiles to overlay on top of the selected profile.
+
 `--verbose` increases verbosity, see subcommands for details.
 
 ## Subcommands
@@ -203,10 +250,18 @@ the [default profile](#yaml) will be used (if it exists).
 For details, run `envprof <command> --help` for the specific subcommand.
 
 <details>
+<summary><strong>path</strong> — Display the path to the configuration file</summary>
+
+- **Usage:**
+  - `envprof path`
+
+</details>
+
+<details>
 <summary><strong>profiles / profs</strong> — List all profiles</summary>
 
 - **Usage:**
-  - `envprof profiles`
+  - `envprof profiles [flags]`
 
 - **Flags:**
   - `--verbose`, `-v` – Mark active profile with asterisk
@@ -221,6 +276,7 @@ For details, run `envprof <command> --help` for the specific subcommand.
 
 - **Flags:**
   - `--oneline`, `-o` – Emit variables on a single line (implies `--verbose=false`)
+  - `--dry`, `-d` – Show the planned layering as a table
   - `--verbose`, `-v` – Show variable origins
 
 </details>
@@ -271,6 +327,14 @@ For details, run `envprof <command> --help` for the specific subcommand.
 - **Flags:**
   - `--isolate`, `-i` – Prevent inheriting current shell variables
   - `--path`, `-p` – Include the current PATH in the environment
+
+</details>
+
+<details>
+<summary><strong>diff</strong> — Show differences between loaded profile and another profile</summary>
+
+- **Usage:**
+  - `envprof diff <profile>`
 
 </details>
 
