@@ -61,42 +61,27 @@ tasks:
   info:
     - task: git
 
-  generate:
-    run: once
-    cmds:
-      - go generate ./...
-
   format:
-    deps:
-      - generate
     cmds:
       - task: format:default
       - task: go:format
 
   lint:
     deps:
-      - generate
-    cmds:
-      - cmd: task lint:default
-      - cmd: task go:lint
+      - task: lint:default
+      - task: go:lint
 
   build:
-    deps:
-      - generate
     cmds:
       - task: go:build
       - task: go:release
 
   test:
-    deps:
-      - generate
     cmds:
       - task: go:quality
 
   all:
     desc: run all available tasks
-    deps:
-      - generate
     cmds:
       - task: clean
       - task: info
@@ -107,8 +92,6 @@ tasks:
 
   default:
     desc: clean, format & lint
-    deps:
-      - generate
     cmds:
       - task: info
       - task: format

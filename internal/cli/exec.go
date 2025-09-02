@@ -4,7 +4,7 @@ import (
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
 
-	execx "github.com/idelchi/envprof/internal/exec"
+	execx "github.com/idelchi/envprof/pkg/exec"
 	"github.com/idelchi/godyl/pkg/env"
 )
 
