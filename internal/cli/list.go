@@ -26,13 +26,13 @@ func List(options *Options) *cobra.Command {
 		`),
 		Example: heredoc.Doc(`
 			# List all variables for 'dev' with sources
-			$ envprof --profile dev -v list
+			envprof --profile dev -v list
 
 			# Show the value of HOST in 'dev'
-			$ envprof --profile dev list HOST
+			envprof --profile dev list HOST
 
 			# List the layering order only
-			$ envprof --profile dev list --dry
+			envprof --profile dev list --dry
 		`),
 		Aliases: []string{"ls"},
 		Args: func(cmd *cobra.Command, args []string) error {

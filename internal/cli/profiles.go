@@ -17,10 +17,10 @@ func Profiles(options *Options) *cobra.Command {
 		Long:  "List all available profiles sorted",
 		Example: heredoc.Doc(`
 			# List all profiles
-			$ envprof profiles
+			envprof profiles
 
 			# Highlight active profile
-			$ envprof profiles -v
+			envprof profiles -v
 		`),
 		Aliases: []string{"profs"},
 		Args:    cobra.NoArgs,
