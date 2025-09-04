@@ -1,4 +1,14 @@
-// Command envprof is a command-line tool for managing environment variables in profiles.
+/*
+Envprof manages environment variables in profiles.
+
+It provides commands for creating, switching between, and managing different environment configurations.
+
+Usage:
+
+	envprof [command] [flags]
+
+Use "envprof --help" for more information.
+*/
 package main
 
 import (

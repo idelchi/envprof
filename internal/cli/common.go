@@ -88,7 +88,7 @@ func LoadProfile(options *Options) (environment.Environment, error) {
 // - https://github.com/containerd/nerdctl/blob/242e6fc6e861b61b878bd7df8bf25e95674c036d/cmd/nerdctl/main.go#L401-L418
 func UnknownSubcommandAction(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
-		return cmd.Help() //nolint: wrapcheck	// The help message (error) should be returned as is
+		return cmd.Help()
 	}
 
 	err := fmt.Sprintf("unknown subcommand %q for %q", args[0], cmd.Name())
@@ -101,5 +101,5 @@ func UnknownSubcommandAction(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	return errors.New(err) //nolint: err113 	 // The error should be returned as is
+	return errors.New(err)
 }
