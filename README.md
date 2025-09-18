@@ -315,6 +315,7 @@ For details, run `envprof <command> --help` for the specific subcommand.
   - `--shell <shell>`, `-s <shell>` – Force shell (default empty string -> detected)
   - `--isolate`, `-i` – Prevent inheriting current shell variables
   - `--path`, `-p` – Include the current PATH in the environment
+  - `--env`, `-e` – Passthrough environment variables (combined with --isolate). Can be specified multiple times
 
 </details>
 
@@ -327,6 +328,8 @@ For details, run `envprof <command> --help` for the specific subcommand.
 - **Flags:**
   - `--isolate`, `-i` – Prevent inheriting current shell variables
   - `--path`, `-p` – Include the current PATH in the environment
+  - `--interactive`, `-I` – Run command in an interactive shell (e.g. as `zsh -i -c "<command> <args...>"`)
+  - `--env`, `-e` – Passthrough environment variables (combined with --isolate). Can be specified multiple times
 
 </details>
 

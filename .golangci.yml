@@ -17,6 +17,8 @@ linters:
     - err113
     # Most errors don't need additional wrapping
     - wrapcheck
+    # Not needed
+    - exhaustive
 
   settings:
     wsl_v5:

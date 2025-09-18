@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/spf13/cobra"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/idelchi/envprof/internal/envprof"
 	"github.com/idelchi/envprof/internal/profiles"
 	"github.com/idelchi/envprof/internal/step"
+	"github.com/idelchi/godyl/pkg/env"
 	"github.com/idelchi/godyl/pkg/path/files"
 )
 
@@ -77,6 +79,25 @@ func LoadProfile(options *Options) (environment.Environment, error) {
 	}
 
 	return profiles.Environment(profile, steps)
+}
+
+// Merge merges the profile and environment based on isolation settings.
+func Merge(profile, environment env.Env, isolate, path bool, envs []string) env.Env {
+	if !isolate {
+		profile.Merge(environment)
+	} else {
+		if path {
+			profile.Merge(env.Env{"PATH": environment.Get("PATH")})
+		}
+
+		selected := environment.GetWithPredicates(func(k, _ string) bool {
+			return slices.Contains(envs, k)
+		})
+
+		profile.Merge(selected)
+	}
+
+	return profile
 }
 
 // UnknownSubcommandAction handles unknown cobra subcommands.

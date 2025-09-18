@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
 
 	execx "github.com/idelchi/envprof/pkg/exec"
+	"github.com/idelchi/envprof/pkg/terminal"
 	"github.com/idelchi/godyl/pkg/env"
 )
 
@@ -13,8 +16,10 @@ func Exec(options *Options) *cobra.Command {
 	environment := env.FromEnv()
 
 	var (
-		isolate bool
-		path    bool
+		isolate     bool
+		path        bool
+		interactive bool
+		envs        []string
 	)
 
 	cmd := &cobra.Command{
@@ -35,6 +40,9 @@ func Exec(options *Options) *cobra.Command {
 
 			# Isolated exec but keep PATH
 			envprof --profile dev exec --isolate --path -- python --version
+
+			# Run in interactive mode (e.g. zsh -i -c "<command> <args...>")
+			envprof --profile dev exec --interactive -- <some alias from .zshrc>
       	`),
 		Aliases: []string{"ex"},
 		Args:    cobra.MinimumNArgs(1),
@@ -44,11 +52,7 @@ func Exec(options *Options) *cobra.Command {
 				return err
 			}
 
-			if !isolate {
-				profile.Env.Merge(environment)
-			} else if path {
-				profile.Env.Merge(env.Env{"PATH": environment.Get("PATH")})
-			}
+			profile.Env = Merge(profile.Env, environment, isolate, path, envs)
 
 			cmd := args[0]
 
@@ -58,7 +62,18 @@ func Exec(options *Options) *cobra.Command {
 				args = nil
 			}
 
-			if err := execx.Replace(cmd, args, profile.Env.AsSlice()); err != nil {
+			var shell terminal.Shell
+
+			if interactive {
+				shell = terminal.Current()
+
+				if options.Verbose {
+					//nolint:forbidigo	// Command prints out to the console.
+					fmt.Printf("Using login shell: %q\n", shell)
+				}
+			}
+
+			if err := execx.Replace(cmd, args, profile.Env.AsSlice(), shell); err != nil {
 				return err
 			}
 
@@ -66,8 +81,11 @@ func Exec(options *Options) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVarP(&isolate, "isolate", "i", false, "Isolate from parent environment.")
-	cmd.Flags().BoolVarP(&path, "path", "p", false, "Include the current PATH in the environment.")
+	cmd.Flags().BoolVarP(&isolate, "isolate", "i", false, "Isolate from parent environment")
+	cmd.Flags().BoolVarP(&path, "path", "p", false, "Include the current PATH in the environment")
+	cmd.Flags().BoolVarP(&interactive, "interactive", "I", false, "Run in interactive mode")
+	cmd.Flags().
+		StringSliceVarP(&envs, "env", "e", nil, "Passthrough environment variables (combined with --isolate)")
 
 	return cmd
 }

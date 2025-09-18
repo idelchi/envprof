@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/idelchi/godyl/pkg/env"
 )
@@ -27,26 +28,67 @@ func Spawn(shell string, env []string) error {
 	return nil
 }
 
+// Shell represents a terminal shell.
+type Shell string
+
+// Type returns the type of shell.
+func (s Shell) Type() Type {
+	switch s {
+	case "":
+		return None
+	case "cmd":
+		return Cmd
+	case "powershell", "pwsh":
+		return Powershell
+	default:
+		return Unix
+	}
+}
+
+// Interactive returns true if the shell is interactive.
+func (s Shell) Interactive() bool {
+	return s.Type() != None
+}
+
+// Type represents the type of shell.
+type Type int
+
+const (
+	// Unix represents a Unix-like shell.
+	Unix Type = iota
+	// Powershell represents the Powershell or pwsh shell.
+	Powershell
+	// Cmd represents the Windows Command Prompt shell.
+	Cmd
+	// None represents no shell.
+	None
+)
+
 // Current tries to determine the current terminal being used.
-func Current() string {
+func Current() Shell {
 	env := env.FromEnv()
 
 	if shell := env.GetAny("SHELL", "STARSHIP_SHELL"); shell != "" {
-		return shell
+		return Shell(shell)
 	}
 
 	switch runtime.GOOS {
 	case "windows":
 		switch {
 		case env.Exists("PROMPT"):
-			return "cmd.exe"
+			return Shell("cmd")
 		case env.Exists("PSMODULEPATH"):
-			return "powershell.exe"
+			PSModulePath := env.Get("PSMODULEPATH")
+			if strings.Contains(PSModulePath, "microsoft.powershell") {
+				return Shell("pwsh")
+			}
+
+			return Shell("powershell")
 		default:
-			return "cmd.exe"
+			return Shell("cmd")
 		}
 
 	default:
-		return "sh"
+		return Shell("sh")
 	}
 }

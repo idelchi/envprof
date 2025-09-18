@@ -19,6 +19,7 @@ func Shell(options *Options) *cobra.Command {
 		shell   = environment.GetAny("SHELL", "STARSHIP_SHELL")
 		isolate bool
 		path    bool
+		envs    []string
 	)
 
 	cmd := &cobra.Command{
@@ -54,33 +55,29 @@ func Shell(options *Options) *cobra.Command {
 				)
 			}
 
-			prof, err := LoadProfile(options)
+			profile, err := LoadProfile(options)
 			if err != nil {
 				return err
 			}
 
-			if err = prof.Env.AddPair("ENVPROF_ACTIVE_PROFILE", prof.Name); err != nil {
+			if err = profile.Env.AddPair("ENVPROF_ACTIVE_PROFILE", profile.Name); err != nil {
 				return err
 			}
 
-			if !isolate {
-				prof.Env.Merge(environment)
-			} else if path {
-				prof.Env.Merge(env.Env{"PATH": environment.Get("PATH")})
-			}
+			profile.Env = Merge(profile.Env, environment, isolate, path, envs)
 
 			if shell == "" {
-				shell = terminal.Current()
+				shell = string(terminal.Current())
 			}
 
 			//nolint:forbidigo	// Command prints out to the console.
 			fmt.Printf(
 				"Entering shell %q with profile %q...\n",
 				file.New(shell).WithoutExtension().Base(),
-				prof.Name,
+				profile.Name,
 			)
 
-			if err := terminal.Spawn(shell, prof.Env.AsSlice()); err != nil {
+			if err := terminal.Spawn(shell, profile.Env.AsSlice()); err != nil {
 				return err
 			}
 
@@ -89,9 +86,11 @@ func Shell(options *Options) *cobra.Command {
 	}
 
 	cmd.Flags().
-		StringVarP(&shell, "shell", "s", shell, "Shell to launch (leave empty to auto-detect).")
-	cmd.Flags().BoolVarP(&isolate, "isolate", "i", false, "Isolate from parent environment.")
-	cmd.Flags().BoolVarP(&path, "path", "p", false, "Include the current PATH in the environment.")
+		StringVarP(&shell, "shell", "s", shell, "Shell to launch (leave empty to auto-detect)")
+	cmd.Flags().BoolVarP(&isolate, "isolate", "i", false, "Isolate from parent environment")
+	cmd.Flags().BoolVarP(&path, "path", "p", false, "Include the current PATH in the environment")
+	cmd.Flags().
+		StringSliceVarP(&envs, "env", "e", nil, "Passthrough environment variables (combined with --isolate)")
 
 	return cmd
 }

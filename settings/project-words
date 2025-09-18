@@ -24,6 +24,7 @@ oneline
 padchar
 paralleltest
 psmodulepath
+pwsh
 stringifying
 subshell
 tabwidth
