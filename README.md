@@ -15,13 +15,11 @@
 
 `envprof` is a CLI tool for managing named environment profiles in `YAML` or `TOML`.
 
-- Define multiple environment profiles in a single YAML or TOML file, with inheritance and dotenv support
+- Define multiple environment profiles in a single YAML or TOML file, with templating, inheritance and dotenv support
 - List profiles, write to `.env` files or export to the current shell,
   execute a command or spawn a subshell with the selected environment
 
 ## Installation
-
-For a quick installation, you can use the provided installation script:
 
 ```sh
 curl -sSL https://raw.githubusercontent.com/idelchi/envprof/refs/heads/main/install.sh | sh -s -- -d ~/.local/bin
@@ -116,9 +114,10 @@ CONFIG='{"foo":"bar"}'
 The entire configuration file is processed as a Go template:
 
 - Access environment variables with `{{ .HOME }}`
-- Provide fallbacks with `{{ .HOME | default "/tmp" }}`
+- Use any function provided by [slim-sprig](https://go-task.github.io/slim-sprig)
 
-These come from your runtime environment (the process' `os.Environ`), not from profiles.
+The environment variables available for templating come from your runtime environment (the process' `os.Environ`),
+not from profiles.
 
 ### YAML
 

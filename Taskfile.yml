@@ -60,7 +60,7 @@ tasks:
     - task: go:clean
 
   info:
-    - task: git
+    - task: aux
 
   format:
     cmds:
