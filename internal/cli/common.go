@@ -3,7 +3,10 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -98,6 +101,40 @@ func Merge(profile, environment env.Env, isolate, path bool, envs []string) env.
 	}
 
 	return profile
+}
+
+// MaybePiped checks if something has been piped to stdin.
+func MaybePiped() (bool, error) {
+	stat, err := os.Stdin.Stat()
+	if err != nil {
+		return false, fmt.Errorf("getting stdin stat: %w", err)
+	}
+
+	isPipe := (stat.Mode()&os.ModeNamedPipe) != 0 ||
+		(stat.Mode()&(os.ModeCharDevice|os.ModeDir|os.ModeSymlink)) == 0
+
+	return isPipe, nil
+}
+
+// Read returns stdin as a string, trimming the trailing newline.
+func Read() ([]string, error) {
+	bytes, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return nil, err
+	}
+
+	input := strings.Split(strings.TrimSuffix(string(bytes), "\n"), " ")
+
+	// trim each element, then drop empties
+	for i := range input {
+		input[i] = strings.TrimSpace(input[i])
+	}
+
+	input = slices.DeleteFunc(input, func(s string) bool {
+		return s == ""
+	})
+
+	return input, nil
 }
 
 // UnknownSubcommandAction handles unknown cobra subcommands.

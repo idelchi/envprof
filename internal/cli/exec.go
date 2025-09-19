@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/MakeNowJust/heredoc/v2"
@@ -12,6 +13,8 @@ import (
 )
 
 // Exec returns the cobra command for executing a command with the active environment.
+//
+//nolint:gocognit  // stdin addition makes this function slightly complex.
 func Exec(options *Options) *cobra.Command {
 	environment := env.FromEnv()
 
@@ -43,6 +46,9 @@ func Exec(options *Options) *cobra.Command {
 
 			# Run in interactive mode (e.g. zsh -i -c "<command> <args...>")
 			envprof --profile dev exec --interactive -- <some alias from .zshrc>
+
+			# Run command and arguments passed with stdin
+			echo "node --version" | envprof --profile dev exec --interactive -
       	`),
 		Aliases: []string{"ex"},
 		Args:    cobra.MinimumNArgs(1),
@@ -56,6 +62,25 @@ func Exec(options *Options) *cobra.Command {
 
 			cmd := args[0]
 
+			if cmd == "-" {
+				if ok, err := MaybePiped(); err != nil {
+					return err
+				} else if !ok {
+					return errors.New("no input from stdin")
+				}
+
+				args, err = Read()
+				if err != nil {
+					return err
+				}
+
+				cmd = args[0]
+
+				if cmd == "" {
+					return errors.New("no input from stdin")
+				}
+			}
+
 			if len(args) > 1 {
 				args = args[1:]
 			} else {
@@ -67,10 +92,15 @@ func Exec(options *Options) *cobra.Command {
 			if interactive {
 				shell = terminal.Current()
 
+				//nolint:forbidigo	// Command prints out to the console.
 				if options.Verbose {
-					//nolint:forbidigo	// Command prints out to the console.
 					fmt.Printf("Using login shell: %q\n", shell)
 				}
+			}
+
+			//nolint:forbidigo	// Command prints out to the console.
+			if options.Verbose {
+				fmt.Printf("Executing command %q with args %q\n", cmd, args)
 			}
 
 			if err := execx.Replace(cmd, args, profile.Env.AsSlice(), shell); err != nil {
