@@ -6,7 +6,7 @@ extends = ['staging']
 HOST = 'localhost'
 
 [staging]
-extends = ['prod', 'dotenv:secrets.env']
+extends = ['prod', 'dotenv:assets/examples/secrets.env']
 [staging.env]
 DEBUG = true
 HOST = 'staging.example.com'

@@ -1,13 +1,13 @@
 module github.com/idelchi/envprof
 
-go 1.25
+go 1.25.1
 
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/MakeNowJust/heredoc/v2 v2.0.1
 	github.com/go-task/slim-sprig/v3 v3.0.0
 	github.com/goccy/go-yaml v1.18.0
-	github.com/idelchi/godyl v0.1.5
+	github.com/idelchi/godyl v0.1.6-beta.0.20250923201746-b8b9627f302e
 	github.com/spf13/cobra v1.10.1
 	golang.org/x/sys v0.36.0
 )

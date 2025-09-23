@@ -34,6 +34,8 @@ func New(file file.File) *EnvProf {
 
 // NewFrom creates a new EnvProf instance from the first found among the given files.
 func NewFrom(files files.Files) (*EnvProf, error) {
+	files.Expanded()
+
 	file, ok := files.Exists()
 	if !ok {
 		return nil, fmt.Errorf("profile file not found: searched for %v", files)

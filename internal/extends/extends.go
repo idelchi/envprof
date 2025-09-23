@@ -27,7 +27,8 @@ func (e Extend) Type() Extend {
 	case strings.HasPrefix(string(e), "dotenv:"):
 		return DotEnv
 	case strings.Contains(string(e), ":"):
-		return Invalid
+		//nolint:mnd // Selects the first segment before the colon.
+		return Extend(strings.SplitN(string(e), ":", 2)[0])
 	default:
 		return Profile
 	}
@@ -76,6 +77,11 @@ func (es *Extends) Resolve() error {
 				return fmt.Errorf("dotenv %q: %w", path, err)
 			}
 
+			// Check if this is a non-glob pattern that returned no matches
+			if len(matches) == 0 && !containsGlobPattern(path) {
+				return fmt.Errorf("dotenv %q: file not found", path)
+			}
+
 			extends = append(extends, ToType(matches, extend.Type())...)
 		} else {
 			extends = append(extends, extend)
@@ -85,4 +91,9 @@ func (es *Extends) Resolve() error {
 	*es = extends
 
 	return nil
+}
+
+// containsGlobPattern checks if a path contains glob wildcards.
+func containsGlobPattern(path string) bool {
+	return strings.ContainsAny(path, "*?[")
 }

@@ -85,8 +85,7 @@ func (p Profiles) plan(root string) (step.Steps, error) {
 
 			case extends.DotEnv:
 				plan = append(plan, step.Step{Kind: step.DotEnv, Owner: node, Name: extend.Path()}) // interleave
-
-			case extends.Invalid:
+			default:
 				return nil, fmt.Errorf("profile %q: unsupported extends %q", node, extend.Type())
 			}
 		}

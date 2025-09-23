@@ -40,6 +40,7 @@ func Profiles(options *Options) *cobra.Command {
 					if first == name {
 						return -1
 					}
+
 					if second == name {
 						return 1
 					}

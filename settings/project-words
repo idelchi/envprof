@@ -11,6 +11,7 @@ dotenvs
 envprof
 execx
 forbidigo
+funlen
 goccy
 gocognit
 godyl

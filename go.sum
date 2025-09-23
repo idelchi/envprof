@@ -13,8 +13,8 @@ github.com/go-task/slim-sprig/v3 v3.0.0 h1:sUs3vkvUymDpBKi3qH1YSqBQk9+9D/8M2mN1v
 github.com/go-task/slim-sprig/v3 v3.0.0/go.mod h1:W848ghGpv3Qj3dhTPRyJypKRiqCdHZiAzKg9hl15HA8=
 github.com/goccy/go-yaml v1.18.0 h1:8W7wMFS12Pcas7KU+VVkaiCng+kG8QiFeFwzFb+rwuw=
 github.com/goccy/go-yaml v1.18.0/go.mod h1:XBurs7gK8ATbW4ZPGKgcbrY1Br56PdM69F7LkFRi1kA=
-github.com/idelchi/godyl v0.1.5 h1:PhMEcNXsuff+in9n+8YVvAkh6FiIZBNqsDChhm3aFOE=
-github.com/idelchi/godyl v0.1.5/go.mod h1:YAzN7ESbUrPPgiBJ5RC13pRAIbXEXU13bjmt6hrB/gI=
+github.com/idelchi/godyl v0.1.6-beta.0.20250923201746-b8b9627f302e h1:l5+yhpXubzvkjNG6d+p3oc2owlOr92gud+KIhQjNod0=
+github.com/idelchi/godyl v0.1.6-beta.0.20250923201746-b8b9627f302e/go.mod h1:YAzN7ESbUrPPgiBJ5RC13pRAIbXEXU13bjmt6hrB/gI=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/jinzhu/copier v0.4.0 h1:w3ciUoD19shMCRargcpm0cm91ytaBhDvuRpz1ODO/U8=

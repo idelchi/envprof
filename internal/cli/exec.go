@@ -14,7 +14,7 @@ import (
 
 // Exec returns the cobra command for executing a command with the active environment.
 //
-//nolint:gocognit  // stdin addition makes this function slightly complex.
+//nolint:gocognit,funlen  // stdin addition makes this function slightly complex.
 func Exec(options *Options) *cobra.Command {
 	environment := env.FromEnv()
 
@@ -33,6 +33,8 @@ func Exec(options *Options) *cobra.Command {
 
 			On Unix, replaces the current process.
 			On Windows, runs and exits with the same code.
+
+			Optionally allows to pass <command> and [args...] via stdin when <command> is "-".
     	`),
 		Example: heredoc.Doc(`
 			# Run a command with 'dev'

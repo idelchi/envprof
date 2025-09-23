@@ -60,6 +60,9 @@ eval "$(envprof --profile dev export)"
 ```sh
 # Execute a command with the profile's environment
 envprof --profile dev exec -- ls -la
+
+# or via stdin
+echo "ls -la" | envprof --profile dev exec -
 ```
 
 ## Configuration
@@ -235,7 +238,8 @@ All commands accept the following flags:
 ```
 
 `--file` can be used to specify a file (or a list of fallback files) to load.
-Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.toml`, unless `ENVPROF_FILE` is set.
+Defaults to the first found among `envprof.yaml`, `envprof.yml`, or `envprof.toml` in the current folder or
+in `~/.config/envprof`, unless `ENVPROF_FILE` is set.
 
 `--profile` specifies the profile to activate. If no profile is specified,
 the [default profile](#yaml) will be used (if it exists).

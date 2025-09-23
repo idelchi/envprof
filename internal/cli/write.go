@@ -44,7 +44,10 @@ func Write(options *Options) *cobra.Command {
 				)
 			}
 
-			environments := environments(all, options, args)
+			environments, err := environments(all, options, args)
+			if err != nil {
+				return err
+			}
 
 			for _, environment := range environments {
 				if err := environment.Write(); err != nil {
@@ -67,23 +70,23 @@ func Write(options *Options) *cobra.Command {
 }
 
 // environments returns the selected subset of environments based on the CLI settings.
-func environments(all bool, options *Options, args []string) (environments []environment.Environment) {
+func environments(all bool, options *Options, args []string) (environments []environment.Environment, err error) {
 	switch {
 	case all:
 		profiles, err := LoadProfiles(options)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 
 		environments, err = profiles.Environments()
 		if err != nil {
-			return nil
+			return nil, err
 		}
 
 	default:
 		env, err := LoadProfile(options)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 
 		if len(args) == 1 {
@@ -93,5 +96,5 @@ func environments(all bool, options *Options, args []string) (environments []env
 		environments = []environment.Environment{env}
 	}
 
-	return environments
+	return environments, nil
 }

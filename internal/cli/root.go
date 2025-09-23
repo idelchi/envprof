@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/MakeNowJust/heredoc/v2"
@@ -28,6 +29,13 @@ func Execute(version string) error {
 			"envprof.yml",
 			"envprof.toml",
 		},
+	}
+
+	home, err := os.UserHomeDir()
+	if err == nil {
+		base := filepath.ToSlash(filepath.Join(home, ".config", "envprof", "envprof"))
+
+		options.EnvProf = append(options.EnvProf, base+".yaml", base+".yml", base+".toml")
 	}
 
 	root := &cobra.Command{
@@ -82,7 +90,6 @@ func Execute(version string) error {
 
 	root.Flags().
 		StringSliceVarP(&options.EnvProf, "file", "f", options.EnvProf, "Config file to use, in order of preference")
-
 	root.Flags().
 		StringVarP(&options.Profile, "profile", "p", "", "Profile to activate")
 	root.PersistentFlags().
