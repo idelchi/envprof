@@ -126,7 +126,6 @@ In addition, the following are always defined:
 
 - `ENVPROF_FILE`, the path to the config file
 - `ENVPROF_DIR`, the directory containing the config file
-- `ENVPROF_PROFILE`, the active profile
 
 ### YAML
 
