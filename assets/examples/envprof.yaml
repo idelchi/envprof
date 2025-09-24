@@ -9,7 +9,7 @@ dev:
 staging:
   extends:
     - prod
-    - dotenv:assets/examples/secrets.env
+    - dotenv:{{ .ENVPROF_DIR }}/secrets.env
   env:
     HOST: staging.example.com
     DEBUG: true

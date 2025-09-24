@@ -9,6 +9,9 @@ import (
 	"github.com/idelchi/envprof/internal/profile"
 )
 
+// ErrValidation is returned when profiles validation fails.
+var ErrValidation = errors.New("validation error")
+
 // Profiles is a map of profile names to their metadata.
 type Profiles map[string]profile.Profile
 
@@ -56,12 +59,12 @@ func (p Profiles) Validate() error {
 	defaults := p.Defaults()
 
 	if len(defaults) > 1 {
-		errs = append(errs, fmt.Errorf("more than one default profile: %v", defaults))
+		errs = append(errs, fmt.Errorf("%w: more than one default profile: %v", ErrValidation, defaults))
 	}
 
 	for name, profile := range p {
 		if err := profile.Extends.Resolve(); err != nil {
-			return fmt.Errorf("profile %q: %w", name, err)
+			return fmt.Errorf("%w: profile %q: %w", ErrValidation, name, err)
 		}
 
 		p[name] = profile

@@ -32,11 +32,11 @@ func EnvProf(options *Options) (*envprof.EnvProf, error) {
 func LoadEnvProf(options *Options) (*envprof.EnvProf, error) {
 	envprof, err := EnvProf(options)
 	if err != nil {
-		return nil, err
+		return envprof, err
 	}
 
 	if err := envprof.Load(); err != nil {
-		return nil, err
+		return envprof, err
 	}
 
 	return envprof, nil

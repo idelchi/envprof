@@ -1,16 +1,22 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
+
+	"github.com/idelchi/envprof/internal/profiles"
+	"github.com/idelchi/godyl/pkg/pretty"
 )
 
 // Profiles returns the cobra command for listing profiles.
 func Profiles(options *Options) *cobra.Command {
+	var rendered bool
+
 	cmd := &cobra.Command{
 		Use:   "profiles",
 		Short: "List all available profiles",
@@ -25,6 +31,17 @@ func Profiles(options *Options) *cobra.Command {
 		Aliases: []string{"profs"},
 		Args:    cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if rendered {
+				envprof, err := LoadEnvProf(options)
+				if err != nil && !errors.Is(err, profiles.ErrValidation) {
+					return err
+				}
+
+				pretty.PrintYAML(envprof.Profiles())
+
+				return nil
+			}
+
 			envprof, err := LoadEnvProf(options)
 			if err != nil {
 				return err
@@ -59,6 +76,8 @@ func Profiles(options *Options) *cobra.Command {
 	}
 
 	cmd.Flags().SortFlags = false
+
+	cmd.Flags().BoolVarP(&rendered, "rendered", "r", false, "Write the rendered profile to stdout")
 
 	return cmd
 }

@@ -74,12 +74,11 @@ func (es *Extends) Resolve() error {
 
 			matches, err := filepath.Glob(path)
 			if err != nil {
-				return fmt.Errorf("dotenv %q: %w", path, err)
+				matches = []string{path}
 			}
 
-			// Check if this is a non-glob pattern that returned no matches
-			if len(matches) == 0 && !containsGlobPattern(path) {
-				return fmt.Errorf("dotenv %q: file not found", path)
+			if len(matches) == 0 {
+				return fmt.Errorf("dotenv %q: no matches found", path)
 			}
 
 			extends = append(extends, ToType(matches, extend.Type())...)
@@ -91,9 +90,4 @@ func (es *Extends) Resolve() error {
 	*es = extends
 
 	return nil
-}
-
-// containsGlobPattern checks if a path contains glob wildcards.
-func containsGlobPattern(path string) bool {
-	return strings.ContainsAny(path, "*?[")
 }

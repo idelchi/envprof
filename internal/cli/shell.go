@@ -85,6 +85,8 @@ func Shell(options *Options) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().SortFlags = false
+
 	cmd.Flags().
 		StringVarP(&shell, "shell", "s", shell, "Shell to launch (leave empty to auto-detect)")
 	cmd.Flags().BoolVarP(&isolate, "isolate", "i", false, "Isolate from parent environment")

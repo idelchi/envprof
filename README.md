@@ -122,6 +122,12 @@ The entire configuration file is processed as a Go template:
 The environment variables available for templating come from your runtime environment (the process' `os.Environ`),
 not from profiles.
 
+In addition, the following are always defined:
+
+- `ENVPROF_FILE`, the path to the config file
+- `ENVPROF_DIR`, the directory containing the config file
+- `ENVPROF_PROFILE`, the active profile
+
 ### YAML
 
 ```yaml
@@ -267,6 +273,7 @@ For details, run `envprof <command> --help` for the specific subcommand.
   - `envprof profiles [flags]`
 
 - **Flags:**
+  - `--rendered`, `-r` – Render the profiles after templating
   - `--verbose`, `-v` – Mark active profile with asterisk
 
 </details>

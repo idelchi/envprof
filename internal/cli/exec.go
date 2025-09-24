@@ -113,6 +113,8 @@ func Exec(options *Options) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().SortFlags = false
+
 	cmd.Flags().BoolVarP(&isolate, "isolate", "i", false, "Isolate from parent environment")
 	cmd.Flags().BoolVarP(&path, "path", "p", false, "Include the current PATH in the environment")
 	cmd.Flags().BoolVarP(&interactive, "interactive", "I", false, "Run in interactive mode")

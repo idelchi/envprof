@@ -3,6 +3,7 @@ package envprof
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 
 	"github.com/idelchi/envprof/internal/profiles"
 	"github.com/idelchi/godyl/pkg/env"
@@ -101,7 +102,13 @@ func (e *EnvProf) Load() error {
 		return err
 	}
 
-	data, err = Template(data, env.FromEnv())
+	env := env.FromEnv()
+
+	// Add ENVPROF_FILE and ENVPROF_DIR for templating
+	_ = env.AddPair("ENVPROF_FILE", e.file.Path())
+	_ = env.AddPair("ENVPROF_DIR", filepath.ToSlash(e.file.Dir()))
+
+	data, err = Template(data, env)
 	if err != nil {
 		return fmt.Errorf("templating profile file %q: %w", e.file.Path(), err)
 	}
@@ -121,11 +128,11 @@ func (e *EnvProf) Load() error {
 		return err
 	}
 
+	e.profiles = profiles
+
 	if err = profiles.Validate(); err != nil {
 		return err
 	}
-
-	e.profiles = profiles
 
 	return nil
 }

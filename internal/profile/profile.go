@@ -8,13 +8,13 @@ import (
 // Profile represents a configuration profile with environment variables and metadata.
 type Profile struct {
 	// Env is a collection of environment variables.
-	Env Env
+	Env Env `toml:"env,omitempty" yaml:"env,omitempty"`
 	// Extends is a list of references to other places to extend from.
-	Extends extends.Extends
+	Extends extends.Extends `toml:"extends,omitempty" yaml:"extends,omitempty"`
 	// Output is the desired output file.
-	Output string
+	Output string `toml:"output,omitempty" yaml:"output,omitempty"`
 	// Default indicates whether this profile is the default one.
-	Default bool
+	Default bool `toml:"default,omitempty" yaml:"default,omitempty"`
 }
 
 // ToEnv converts the profile to an environment representation,
