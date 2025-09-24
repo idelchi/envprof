@@ -10,7 +10,7 @@ Env SHELL "bash"
 
 # Setup
 Hide
-Type `printf '%s\n' 'export PS1="[${ENVPROF_ACTIVE_PROFILE}] > "' > ~/.bashrc`
+Type `printf '%s\n' 'export PS1="[${ENVPROF_ACTIVE_PROFILE}]> "' > ~/.bashrc`
 Enter
 Type "cd ~/assets/examples"
 Enter
