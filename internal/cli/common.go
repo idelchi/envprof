@@ -103,8 +103,8 @@ func Merge(profile, environment env.Env, isolate, path bool, envs []string) env.
 	return profile
 }
 
-// MaybePiped checks if something has been piped to stdin.
-func MaybePiped() (bool, error) {
+// IsStdinPiped checks if something has been piped to stdin.
+func IsStdinPiped() (bool, error) {
 	stat, err := os.Stdin.Stat()
 	if err != nil {
 		return false, fmt.Errorf("getting stdin stat: %w", err)

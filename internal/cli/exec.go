@@ -65,7 +65,7 @@ func Exec(options *Options) *cobra.Command {
 			cmd := args[0]
 
 			if cmd == "-" {
-				if ok, err := MaybePiped(); err != nil {
+				if ok, err := IsStdinPiped(); err != nil {
 					return err
 				} else if !ok {
 					return errors.New("no input from stdin")
