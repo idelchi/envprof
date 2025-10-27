@@ -21,4 +21,5 @@ require (
 	github.com/showa-93/go-mask v0.6.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
+	mvdan.cc/sh/v3 v3.12.0 // indirect
 )
