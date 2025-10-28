@@ -81,6 +81,7 @@ func Execute(version string) error {
 	root.Flags().SortFlags = false
 	root.PersistentFlags().SortFlags = false
 
+	root.CompletionOptions.HiddenDefaultCmd = true
 	cobra.EnableCommandSorting = false
 
 	if file := os.Getenv("ENVPROF_FILE"); file != "" {
